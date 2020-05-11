@@ -1,0 +1,273 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Parkinson Meta-Analysis},
+  pdfauthor={Sven Kleine Bardenhorst},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+
+\title{Parkinson Meta-Analysis}
+\author{Sven Kleine Bardenhorst}
+\date{8 4 2020}
+
+\begin{document}
+\maketitle
+
+The script is devided into this script, where all actions and analyses
+are performed and two seperate scripts. The `functions.R' script is used
+to sepcify all functions used throughout this document, while all
+necessary packages are installed and loaded in the `packages.R' script.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#### load packages ####}
+\KeywordTok{source}\NormalTok{(}\StringTok{'packages.R'}\NormalTok{)}
+
+\CommentTok{#### load functions ####}
+\KeywordTok{source}\NormalTok{(}\StringTok{"functions.R"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{load-data}{%
+\subsection{Load data}\label{load-data}}
+
+First, I will load all datafiles as well as the metadata obtained either
+by the authors or via the European Nucleotide Archive. For readability,
+I will refer to all original studies via characters which can be found
+in the Excel file.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{# Load ASV data}
+\NormalTok{A <-}\StringTok{ }\NormalTok{readr}\OperatorTok{::}\KeywordTok{read_delim}\NormalTok{(}\StringTok{"Data/A.txt"}\NormalTok{,}\DataTypeTok{delim=}\StringTok{"}\CharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+\NormalTok{B <-}\StringTok{ }\NormalTok{readr}\OperatorTok{::}\KeywordTok{read_delim}\NormalTok{(}\StringTok{"Data/B.txt"}\NormalTok{,}\DataTypeTok{delim=}\StringTok{"}\CharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+\NormalTok{C <-}\StringTok{ }\NormalTok{readr}\OperatorTok{::}\KeywordTok{read_delim}\NormalTok{(}\StringTok{"Data/C.txt"}\NormalTok{,}\DataTypeTok{delim=}\StringTok{"}\CharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+\NormalTok{E <-}\StringTok{ }\NormalTok{readr}\OperatorTok{::}\KeywordTok{read_delim}\NormalTok{(}\StringTok{"Data/E.txt"}\NormalTok{,}\DataTypeTok{delim=}\StringTok{"}\CharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+\NormalTok{H <-}\StringTok{ }\NormalTok{readr}\OperatorTok{::}\KeywordTok{read_delim}\NormalTok{(}\StringTok{"Data/H.txt"}\NormalTok{,}\DataTypeTok{delim=}\StringTok{"}\CharTok{\textbackslash{}t}\StringTok{"}\NormalTok{)}
+
+\CommentTok{# Load Meta data}
+\NormalTok{A_Meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/A_meta.txt"}\NormalTok{)}
+\NormalTok{B_Meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/B_meta.txt"}\NormalTok{)}
+\CommentTok{#C_Meta <- loadENAMeta(path="Data/C_meta.txt")}
+\CommentTok{#D_Meta <- loadENAMeta(path="Data/D_meta.txt")}
+\NormalTok{E_Meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/E_meta.txt"}\NormalTok{)}
+\NormalTok{F_meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/F_meta.txt"}\NormalTok{)}
+\NormalTok{G_Meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/G_meta.txt"}\NormalTok{)}
+\NormalTok{H_Meta <-}\StringTok{ }\KeywordTok{loadENAMeta}\NormalTok{(}\DataTypeTok{path=}\StringTok{"Data/H_meta.txt"}\NormalTok{)}
+\CommentTok{#I_Meta <- loadENAMeta(path="Data/I_meta.txt")}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{tidy-up-and-clean-the-data}{%
+\subsection{Tidy up and clean the
+data}\label{tidy-up-and-clean-the-data}}
+
+Next, I will bring the data into a tidy format
+(rows=observations,columns=variables and useful naming) and create a
+seperate dataframe to store the taxonomic information per study.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{# prepare taxonomies }
+\NormalTok{A_tax <-}\StringTok{ }\KeywordTok{prepare_taxonomy}\NormalTok{(A)}
+\NormalTok{B_tax <-}\StringTok{ }\KeywordTok{prepare_taxonomy}\NormalTok{(B)}
+\NormalTok{C_tax <-}\StringTok{ }\KeywordTok{prepare_taxonomy}\NormalTok{(C)}
+\NormalTok{E_tax <-}\StringTok{ }\KeywordTok{prepare_taxonomy}\NormalTok{(E)}
+\NormalTok{H_tax <-}\StringTok{ }\KeywordTok{prepare_taxonomy}\NormalTok{(H)}
+
+\CommentTok{# transpose into tidy format}
+\NormalTok{A_dat <-}\StringTok{ }\KeywordTok{tidy_up}\NormalTok{(A,}\DataTypeTok{trim=}\NormalTok{F)}
+\NormalTok{B_dat <-}\StringTok{ }\KeywordTok{tidy_up}\NormalTok{(B,}\DataTypeTok{trim=}\NormalTok{T)}
+\NormalTok{C_dat <-}\StringTok{ }\KeywordTok{tidy_up}\NormalTok{(C)}
+\NormalTok{E_dat <-}\StringTok{ }\KeywordTok{tidy_up}\NormalTok{(E,}\DataTypeTok{trim=}\NormalTok{T)}
+\NormalTok{H_dat <-}\StringTok{ }\KeywordTok{tidy_up}\NormalTok{(H)}
+\end{Highlighting}
+\end{Shaded}
+
+Next, I will inspect the data to see the data quality and inform some
+quality filtering decisions.
+
+Generally, all ASVs not part of the Domain Bacteria and all Chloroplasts
+will be filtered. Studywise filterings will be applied based on the
+previous findings.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{## Quality filtering}
+\NormalTok{A_clean <-}\StringTok{ }\KeywordTok{clean}\NormalTok{(A_dat,A_tax,}\DataTypeTok{min_tax =} \StringTok{"Class"}\NormalTok{,}\DataTypeTok{min_abund=}\DecValTok{100}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Total number of ASVs: 8622 
+##  158 ASVs filtered due to wrong Kingdom
+##  392 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (< 17 ) and missing information at rank Class 
+##  Number of filtered ASVs: 550 
+##  New number of ASVs: 8072
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{B_clean <-}\StringTok{ }\KeywordTok{clean}\NormalTok{(B_dat,B_tax,}\DataTypeTok{min_tax =} \StringTok{"Class"}\NormalTok{,}\DataTypeTok{min_abund=}\DecValTok{100}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Total number of ASVs: 2723 
+##  39 ASVs filtered due to wrong Kingdom
+##  97 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (< 53 ) and missing information at rank Class 
+##  Number of filtered ASVs: 136 
+##  New number of ASVs: 2587
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{C_clean <-}\StringTok{ }\KeywordTok{clean}\NormalTok{(C_dat,C_tax,}\DataTypeTok{min_tax =} \StringTok{"Class"}\NormalTok{,}\DataTypeTok{min_abund=}\DecValTok{100}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Total number of ASVs: 4807 
+##  35 ASVs filtered due to wrong Kingdom
+##  205 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (< 10 ) and missing information at rank Class 
+##  Number of filtered ASVs: 240 
+##  New number of ASVs: 4567
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#D_clean <- clean(D_dat,D_tax,min_tax = "Class",min_abund=100)}
+\NormalTok{E_clean <-}\StringTok{ }\KeywordTok{clean}\NormalTok{(E_dat,E_tax,}\DataTypeTok{min_tax =} \StringTok{"Class"}\NormalTok{,}\DataTypeTok{min_abund=}\DecValTok{100}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Total number of ASVs: 9427 
+##  12 ASVs filtered due to wrong Kingdom
+##  274 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (< 16 ) and missing information at rank Class 
+##  Number of filtered ASVs: 286 
+##  New number of ASVs: 9141
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#F_clean <- clean(F_dat,F_tax,min_tax = "Class",min_abund=100)}
+\CommentTok{#G_clean <- clean(G_dat,G_tax,min_tax = "Class",min_abund=100)}
+\NormalTok{H_clean <-}\StringTok{ }\KeywordTok{clean}\NormalTok{(H_dat,H_tax,}\DataTypeTok{min_tax =} \StringTok{"Class"}\NormalTok{,}\DataTypeTok{min_abund=}\DecValTok{100}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Total number of ASVs: 2757 
+##  4 ASVs filtered due to wrong Kingdom
+##  108 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (< 10 ) and missing information at rank Class 
+##  Number of filtered ASVs: 112 
+##  New number of ASVs: 2645
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#I_clean <- clean(I_dat,I_tax,min_tax = "Class",min_abund=100)}
+\end{Highlighting}
+\end{Shaded}
+
+\end{document}

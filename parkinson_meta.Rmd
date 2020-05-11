@@ -1,0 +1,204 @@
+---
+title: "Parkinson Meta-Analysis"
+author: "Sven Kleine Bardenhorst"
+date: "8 4 2020"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+    theme: simplex
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The script is devided into this script, where all actions and analyses are performed and two seperate scripts. The `functions.R` script is used to sepcify all functions used throughout this document, while all necessary packages are installed and loaded in the `packages.R` script.
+
+```{r load packages, message=FALSE, warning=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+```
+
+## Load data
+
+First, I will load all datafiles as well as the metadata obtained either by the authors or via the European Nucleotide Archive. For readability, I will refer to all original studies via characters which can be found in the Excel file.
+
+```{r Load data, message=FALSE, warning=FALSE}
+# Load ASV data
+A <- readr::read_delim("Data/A.txt",delim="\t")
+B <- readr::read_delim("Data/B.txt",delim="\t")
+C <- readr::read_delim("Data/C.txt",delim="\t")
+E <- readr::read_delim("Data/E.txt",delim="\t")
+H <- readr::read_delim("Data/H.txt",delim="\t")
+
+# Load Meta data
+A_Meta <- loadENAMeta(path="Data/A_meta.txt")
+B_Meta <- loadENAMeta(path="Data/B_meta.txt")
+#C_Meta <- loadENAMeta(path="Data/C_meta.txt")
+#D_Meta <- loadENAMeta(path="Data/D_meta.txt")
+E_Meta <- loadENAMeta(path="Data/E_meta.txt")
+F_meta <- loadENAMeta(path="Data/F_meta.txt")
+G_Meta <- loadENAMeta(path="Data/G_meta.txt")
+H_Meta <- loadENAMeta(path="Data/H_meta.txt")
+#I_Meta <- loadENAMeta(path="Data/I_meta.txt")
+
+```
+
+## Tidy up and inspect data
+
+Next, I will bring the data into a tidy format (rows=observations,columns=variables and useful naming) and create a seperate dataframe to store the taxonomic information per study.
+
+```{r tidy, message=FALSE, warning=FALSE}
+# prepare taxonomies 
+A_tax <- prepare_taxonomy(A)
+B_tax <- prepare_taxonomy(B)
+C_tax <- prepare_taxonomy(C)
+E_tax <- prepare_taxonomy(E)
+H_tax <- prepare_taxonomy(H)
+
+# transpose into tidy format
+A_dat <- tidy_up(A,trim=F)
+B_dat <- tidy_up(B,trim=T)
+C_dat <- tidy_up(C)
+E_dat <- tidy_up(E,trim=T)
+H_dat <- tidy_up(H)
+```
+
+Next, I will inspect the data to see the data quality and inform some quality filtering decisions.
+
+### Number of reads per ASV
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Inspect read depth
+rbind(A_dat %>% inspect_reads() %>% summary,
+B_dat %>% inspect_reads() %>% summary,
+C_dat %>% inspect_reads() %>% summary,
+E_dat %>% inspect_reads() %>% summary,
+H_dat %>% inspect_reads() %>% summary) %>%
+  `rownames<-`(c('A','B','C','E','H')) %>%
+  round(0) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.)) %>%
+   select(Study,everything(.)) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+
+
+```
+
+### Sequencing depth per sample
+
+```{r echo=FALSE}
+rbind("A"=A_dat %>% inspect_depth() %>% summary,
+"B" = B_dat %>% inspect_depth() %>% summary,
+"C" = C_dat %>% inspect_depth() %>% summary,
+"E" = E_dat %>% inspect_depth() %>% summary,
+"H" = H_dat %>% inspect_depth() %>% summary)  %>%
+   round(0) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.)) %>%
+   select(Study,everything(.)) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+
+```
+
+Somehow, some datasets contain observations without a single read.
+```{r echo=FALSE}
+B_dat[B_dat %>% inspect_depth() == 0,1]
+E_dat[E_dat %>% inspect_depth() == 0,1]
+```
+
+### Amount of sparsity 
+
+#### per ASV
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rbind("A"=A_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"B" = B_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"C" = C_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"E" = E_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"H" = H_dat %>% inspect_sparsity(sp='asv') %>% summary) %>%
+  round(2) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.)) %>%
+   select(Study,everything(.)) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+```
+
+#### per sample
+```{r echo=FALSE}
+rbind("A"=A_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"B" = B_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"C" = C_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"E" = E_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"H" = H_dat %>% inspect_sparsity(sp='obs') %>% summary) %>%
+  round(2) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.)) %>%
+   select(Study,everything(.)) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+```
+
+#### Overall
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rbind("A"=A_dat %>% inspect_sparsity(sp='total'),
+"B" = B_dat %>% inspect_sparsity(sp='total'),
+"C" = C_dat %>% inspect_sparsity(sp='total'),
+"E" = E_dat %>% inspect_sparsity(sp='total'),
+"H" = H_dat %>% inspect_sparsity(sp='total')) %>%
+  round(2) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.),
+          Sparsity = V1) %>%
+   select(Study,Sparsity) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+```
+
+
+
+
+## Quality filtering
+
+Generally, all ASVs not part of the Domain **Bacteria** and all **Chloroplasts** will be filtered. Study-specific filterings will be applied based on the previous findings.
+
+```{r data cleaning, warning=FALSE}
+## Quality filtering
+A_clean <- clean(A_dat,A_tax,min_tax = "Family")
+B_clean <- clean(B_dat,B_tax,min_tax = "Family")
+C_clean <- clean(C_dat,C_tax,min_tax = "Family")
+#D_clean <- clean(D_dat,D_tax,min_tax = "Family",min_abund=100)
+E_clean <- clean(E_dat,E_tax,min_tax = "Family")
+#F_clean <- clean(F_dat,F_tax,min_tax = "Family",min_abund=100)
+#G_clean <- clean(G_dat,G_tax,min_tax = "Family",min_abund=100)
+H_clean <- clean(H_dat,H_tax,min_tax = "Family")
+#I_clean <- clean(I_dat,I_tax,min_tax = "Family",min_abund=100)
+```
+
