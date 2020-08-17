@@ -30,23 +30,25 @@ First, I will load all datafiles as well as the metadata obtained either by the 
 
 ```{r Load data, message=FALSE, warning=FALSE}
 # Load ASV data
-A <- readr::read_delim("Data/A.txt",delim="\t")
-B <- readr::read_delim("Data/B.txt",delim="\t")
-C <- readr::read_delim("Data/C.txt",delim="\t")
-E <- readr::read_delim("Data/E.txt",delim="\t")
-H <- readr::read_delim("Data/H.txt",delim="\t")
-
+A_data <- readr::read_delim("Data/A_data.txt",delim="\t")
+B_data <- readr::read_delim("Data/B_data.txt",delim="\t")
+C_data <- readr::read_delim("Data/C_data.txt",delim="\t")
+E_data <- readr::read_delim("Data/E_data.txt",delim="\t")
+F_data <- readr::read_delim("Data/F_data.txt",delim="\t")
+H_data <- readr::read_delim("Data/H_data.txt",delim="\t")
+J_data <- readr::read_delim("Data/J_data.txt",delim="\t")
+                       
 # Load Meta data
-A_Meta <- loadENAMeta(path="Data/A_meta.txt")
-B_Meta <- loadENAMeta(path="Data/B_meta.txt")
+A_Meta <- loadENAMeta(path="Data/A_meta_ENA.txt")
+B_Meta <- loadENAMeta(path="Data/B_meta_ENA.txt")
 #C_Meta <- loadENAMeta(path="Data/C_meta.txt")
 #D_Meta <- loadENAMeta(path="Data/D_meta.txt")
-E_Meta <- loadENAMeta(path="Data/E_meta.txt")
-F_meta <- loadENAMeta(path="Data/F_meta.txt")
-G_Meta <- loadENAMeta(path="Data/G_meta.txt")
-H_Meta <- loadENAMeta(path="Data/H_meta.txt")
+E_Meta <- loadENAMeta(path="Data/E_meta_ENA.txt")
+F_meta <- loadENAMeta(path="Data/F_meta_ENA.txt")
+G_Meta <- loadENAMeta(path="Data/G_meta_ENA.txt")
+H_Meta <- loadENAMeta(path="Data/H_meta_ENA.txt")
 #I_Meta <- loadENAMeta(path="Data/I_meta.txt")
-
+J_Meta <- loadENAMeta(path="Data/J_meta_ENA.txt")
 ```
 
 ## Tidy up and inspect data
@@ -55,18 +57,23 @@ Next, I will bring the data into a tidy format (rows=observations,columns=variab
 
 ```{r tidy, message=FALSE, warning=FALSE}
 # prepare taxonomies 
-A_tax <- prepare_taxonomy(A)
-B_tax <- prepare_taxonomy(B)
-C_tax <- prepare_taxonomy(C)
-E_tax <- prepare_taxonomy(E)
-H_tax <- prepare_taxonomy(H)
+A_tax <- prepare_taxonomy(A_data)
+B_tax <- prepare_taxonomy(B_data)
+C_tax <- prepare_taxonomy(C_data)
+E_tax <- prepare_taxonomy(E_data)
+F_tax <- prepare_taxonomy(F_data)
+H_tax <- prepare_taxonomy(H_data)
+J_tax <- prepare_taxonomy(J_data)
 
 # transpose into tidy format
-A_dat <- tidy_up(A,trim=F)
-B_dat <- tidy_up(B,trim=T)
-C_dat <- tidy_up(C)
-E_dat <- tidy_up(E,trim=T)
-H_dat <- tidy_up(H)
+A_dat <- tidy_up(A_data,trim=F)
+B_dat <- tidy_up(B_data,trim=T)
+C_dat <- tidy_up(C_data)
+E_dat <- tidy_up(E_data,trim=T)
+F_dat <- tidy_up(F_data)
+H_dat <- tidy_up(H_data)
+J_dat <- tidy_up(J_data)
+
 ```
 
 Next, I will inspect the data to see the data quality and inform some quality filtering decisions.
@@ -79,8 +86,10 @@ rbind(A_dat %>% inspect_reads() %>% summary,
 B_dat %>% inspect_reads() %>% summary,
 C_dat %>% inspect_reads() %>% summary,
 E_dat %>% inspect_reads() %>% summary,
-H_dat %>% inspect_reads() %>% summary) %>%
-  `rownames<-`(c('A','B','C','E','H')) %>%
+F_dat %>% inspect_reads() %>% summary,
+H_dat %>% inspect_reads() %>% summary,
+J_dat %>% inspect_reads() %>% summary) %>%
+  `rownames<-`(c('A','B','C','E','F','H','J')) %>%
   round(0) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
@@ -102,7 +111,9 @@ rbind("A"=A_dat %>% inspect_depth() %>% summary,
 "B" = B_dat %>% inspect_depth() %>% summary,
 "C" = C_dat %>% inspect_depth() %>% summary,
 "E" = E_dat %>% inspect_depth() %>% summary,
-"H" = H_dat %>% inspect_depth() %>% summary)  %>%
+"F" = F_dat %>% inspect_depth() %>% summary,
+"H" = H_dat %>% inspect_depth() %>% summary,
+"J" = J_dat %>% inspect_depth() %>% summary)  %>%
    round(0) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
@@ -130,7 +141,9 @@ rbind("A"=A_dat %>% inspect_sparsity(sp='asv') %>% summary,
 "B" = B_dat %>% inspect_sparsity(sp='asv') %>% summary,
 "C" = C_dat %>% inspect_sparsity(sp='asv') %>% summary,
 "E" = E_dat %>% inspect_sparsity(sp='asv') %>% summary,
-"H" = H_dat %>% inspect_sparsity(sp='asv') %>% summary) %>%
+"F" = F_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"H" = H_dat %>% inspect_sparsity(sp='asv') %>% summary,
+"J" = J_dat %>% inspect_sparsity(sp='asv') %>% summary) %>%
   round(2) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
@@ -149,7 +162,9 @@ rbind("A"=A_dat %>% inspect_sparsity(sp='obs') %>% summary,
 "B" = B_dat %>% inspect_sparsity(sp='obs') %>% summary,
 "C" = C_dat %>% inspect_sparsity(sp='obs') %>% summary,
 "E" = E_dat %>% inspect_sparsity(sp='obs') %>% summary,
-"H" = H_dat %>% inspect_sparsity(sp='obs') %>% summary) %>%
+"F" = F_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"H" = H_dat %>% inspect_sparsity(sp='obs') %>% summary,
+"J" = J_dat %>% inspect_sparsity(sp='obs') %>% summary) %>%
   round(2) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
@@ -168,7 +183,9 @@ rbind("A"=A_dat %>% inspect_sparsity(sp='total'),
 "B" = B_dat %>% inspect_sparsity(sp='total'),
 "C" = C_dat %>% inspect_sparsity(sp='total'),
 "E" = E_dat %>% inspect_sparsity(sp='total'),
-"H" = H_dat %>% inspect_sparsity(sp='total')) %>%
+"F" = F_dat %>% inspect_sparsity(sp='total'),
+"H" = H_dat %>% inspect_sparsity(sp='total'),
+"J" = J_dat %>% inspect_sparsity(sp='total')) %>%
   round(2) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.),
@@ -182,23 +199,67 @@ rbind("A"=A_dat %>% inspect_sparsity(sp='total'),
   kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
 ```
 
+# Analyes Same Region (V4)
+
+## Prepare microbiome data
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+studies <- list("A_Dysbiosisofgutmicrobiota",
+             "B_Alterationofthefecalmicrobiota",
+             "C_ColonicbacterialcompositioninParkinson",
+             "E_Gutmicrobiotain",
+             "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
+             "H_EffectofParkinsonsdisease")
+
+path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\Data\\")
+seq_same <- paste("Sequences_sameregion\\")
+tax_same <- paste("Classified_sameregion\\Classified_Unaligned_Sliced_F_Sequences_") 
+
+taxa <- lapply(studies,function(x) read_tsv(paste0(path,tax_same,x,"_noC.txt.align.fasta"),quote="",col_names = F))
+seq <- lapply(studies, function(x) ((seqinr::read.fasta(paste0(path,seq_same,"Unaligned_Sliced_F_Sequences_",x,"_noC.txt.align.fasta"),as.string = T,set.attributes = F))))
+
+seq <- foreach(i=seq_along(seq)) %do% data.frame("ID"=paste0("ASV",names(unlist(seq[[i]]))),"Sequence"=unlist(seq[[i]]))
+
+
+taxon <- lapply(taxa,prepare_taxonomy_sameregion)
+
+A_tax <- taxon[[1]] %>% left_join(seq[[1]])
+#B_tax <- taxon[[2]] %>% left_join(seq[[2]])
+C_tax <- taxon[[3]] %>% left_join(seq[[3]])
+E_tax <- taxon[[4]] %>% left_join(seq[[4]])
+F_tax <- taxon[[5]] %>% left_join(seq[[5]])
+H_tax <- taxon[[6]] %>% left_join(seq[[6]])
 
 
 
-## Quality filtering
-
-Generally, all ASVs not part of the Domain **Bacteria** and all **Chloroplasts** will be filtered. Study-specific filterings will be applied based on the previous findings.
-
-```{r data cleaning, warning=FALSE}
-## Quality filtering
-A_clean <- clean(A_dat,A_tax,min_tax = "Family")
-B_clean <- clean(B_dat,B_tax,min_tax = "Family")
-C_clean <- clean(C_dat,C_tax,min_tax = "Family")
-#D_clean <- clean(D_dat,D_tax,min_tax = "Family",min_abund=100)
-E_clean <- clean(E_dat,E_tax,min_tax = "Family")
-#F_clean <- clean(F_dat,F_tax,min_tax = "Family",min_abund=100)
-#G_clean <- clean(G_dat,G_tax,min_tax = "Family",min_abund=100)
-H_clean <- clean(H_dat,H_tax,min_tax = "Family")
-#I_clean <- clean(I_dat,I_tax,min_tax = "Family",min_abund=100)
 ```
+
+## Quality filtering
+```{r}
+A_clean <- clean(A_dat,A_tax,filter="rel")
+#B_clean <- clean(B_dat,B_tax,filter="rel")
+C_clean <- clean(C_dat,C_tax,filter="rel")
+E_clean <- clean(E_dat,E_tax,filter="rel")
+F_clean <- clean(F_dat,F_tax,filter="rel")
+H_clean <- clean(H_dat,H_tax,filter="rel")
+```
+
+## Prepare metadata
+
+```{r}
+# Load Meta data
+A_Meta <- loadENAMeta(path="Data/A_meta_ENA.txt")
+B_Meta <- loadENAMeta(path="Data/B_meta_ENA.txt")
+#C_Meta <- loadENAMeta(path="Data/C_meta.txt")
+#D_Meta <- loadENAMeta(path="Data/D_meta.txt")
+E_Meta <- loadENAMeta(path="Data/E_meta_ENA.txt")
+F_meta <- loadENAMeta(path="Data/F_meta_ENA.txt")
+G_Meta <- loadENAMeta(path="Data/G_meta_ENA.txt")
+H_Meta <- loadENAMeta(path="Data/H_meta_ENA.txt")
+#I_Meta <- loadENAMeta(path="Data/I_meta.txt")
+J_Meta <- loadENAMeta(path="Data/J_meta_ENA.txt")
+```
+
+
+
 

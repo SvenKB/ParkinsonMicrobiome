@@ -1547,39 +1547,46 @@ source(&quot;functions.R&quot;)</code></pre>
 <h2>Load data</h2>
 <p>First, I will load all datafiles as well as the metadata obtained either by the authors or via the European Nucleotide Archive. For readability, I will refer to all original studies via characters which can be found in the Excel file.</p>
 <pre class="r"><code># Load ASV data
-A &lt;- readr::read_delim(&quot;Data/A.txt&quot;,delim=&quot;\t&quot;)
-B &lt;- readr::read_delim(&quot;Data/B.txt&quot;,delim=&quot;\t&quot;)
-C &lt;- readr::read_delim(&quot;Data/C.txt&quot;,delim=&quot;\t&quot;)
-E &lt;- readr::read_delim(&quot;Data/E.txt&quot;,delim=&quot;\t&quot;)
-H &lt;- readr::read_delim(&quot;Data/H.txt&quot;,delim=&quot;\t&quot;)
-
+A_data &lt;- readr::read_delim(&quot;Data/A_data.txt&quot;,delim=&quot;\t&quot;)
+B_data &lt;- readr::read_delim(&quot;Data/B_data.txt&quot;,delim=&quot;\t&quot;)
+C_data &lt;- readr::read_delim(&quot;Data/C_data.txt&quot;,delim=&quot;\t&quot;)
+E_data &lt;- readr::read_delim(&quot;Data/E_data.txt&quot;,delim=&quot;\t&quot;)
+F_data &lt;- readr::read_delim(&quot;Data/F_data.txt&quot;,delim=&quot;\t&quot;)
+H_data &lt;- readr::read_delim(&quot;Data/H_data.txt&quot;,delim=&quot;\t&quot;)
+J_data &lt;- readr::read_delim(&quot;Data/J_data.txt&quot;,delim=&quot;\t&quot;)
+                       
 # Load Meta data
-A_Meta &lt;- loadENAMeta(path=&quot;Data/A_meta.txt&quot;)
-B_Meta &lt;- loadENAMeta(path=&quot;Data/B_meta.txt&quot;)
+A_Meta &lt;- loadENAMeta(path=&quot;Data/A_meta_ENA.txt&quot;)
+B_Meta &lt;- loadENAMeta(path=&quot;Data/B_meta_ENA.txt&quot;)
 #C_Meta &lt;- loadENAMeta(path=&quot;Data/C_meta.txt&quot;)
 #D_Meta &lt;- loadENAMeta(path=&quot;Data/D_meta.txt&quot;)
-E_Meta &lt;- loadENAMeta(path=&quot;Data/E_meta.txt&quot;)
-F_meta &lt;- loadENAMeta(path=&quot;Data/F_meta.txt&quot;)
-G_Meta &lt;- loadENAMeta(path=&quot;Data/G_meta.txt&quot;)
-H_Meta &lt;- loadENAMeta(path=&quot;Data/H_meta.txt&quot;)
-#I_Meta &lt;- loadENAMeta(path=&quot;Data/I_meta.txt&quot;)</code></pre>
+E_Meta &lt;- loadENAMeta(path=&quot;Data/E_meta_ENA.txt&quot;)
+F_meta &lt;- loadENAMeta(path=&quot;Data/F_meta_ENA.txt&quot;)
+G_Meta &lt;- loadENAMeta(path=&quot;Data/G_meta_ENA.txt&quot;)
+H_Meta &lt;- loadENAMeta(path=&quot;Data/H_meta_ENA.txt&quot;)
+#I_Meta &lt;- loadENAMeta(path=&quot;Data/I_meta.txt&quot;)
+J_Meta &lt;- loadENAMeta(path=&quot;Data/J_meta_ENA.txt&quot;)</code></pre>
 </div>
 <div id="tidy-up-and-inspect-data" class="section level2">
 <h2>Tidy up and inspect data</h2>
 <p>Next, I will bring the data into a tidy format (rows=observations,columns=variables and useful naming) and create a seperate dataframe to store the taxonomic information per study.</p>
 <pre class="r"><code># prepare taxonomies 
-A_tax &lt;- prepare_taxonomy(A)
-B_tax &lt;- prepare_taxonomy(B)
-C_tax &lt;- prepare_taxonomy(C)
-E_tax &lt;- prepare_taxonomy(E)
-H_tax &lt;- prepare_taxonomy(H)
+A_tax &lt;- prepare_taxonomy(A_data)
+B_tax &lt;- prepare_taxonomy(B_data)
+C_tax &lt;- prepare_taxonomy(C_data)
+E_tax &lt;- prepare_taxonomy(E_data)
+F_tax &lt;- prepare_taxonomy(F_data)
+H_tax &lt;- prepare_taxonomy(H_data)
+J_tax &lt;- prepare_taxonomy(J_data)
 
 # transpose into tidy format
-A_dat &lt;- tidy_up(A,trim=F)
-B_dat &lt;- tidy_up(B,trim=T)
-C_dat &lt;- tidy_up(C)
-E_dat &lt;- tidy_up(E,trim=T)
-H_dat &lt;- tidy_up(H)</code></pre>
+A_dat &lt;- tidy_up(A_data,trim=F)
+B_dat &lt;- tidy_up(B_data,trim=T)
+C_dat &lt;- tidy_up(C_data)
+E_dat &lt;- tidy_up(E_data,trim=T)
+F_dat &lt;- tidy_up(F_data)
+H_dat &lt;- tidy_up(H_data)
+J_dat &lt;- tidy_up(J_data)</code></pre>
 <p>Next, I will inspect the data to see the data quality and inform some quality filtering decisions.</p>
 <div id="number-of-reads-per-asv" class="section level3">
 <h3>Number of reads per ASV</h3>
@@ -1615,22 +1622,22 @@ Max.
 A
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(37, 131, 142, 1) !important;">1</span>
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(72, 34, 116, 1) !important;">14</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(72, 30, 112, 1) !important;">74</span>
+<span style=" font-weight: bold;    color: rgba(63, 71, 136, 1) !important;">74</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(53, 96, 141, 1) !important;">2170</span>
+<span style=" font-weight: bold;    color: rgba(39, 173, 129, 1) !important;">2170</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(70, 48, 126, 1) !important;">413</span>
+<span style=" font-weight: bold;    color: rgba(50, 101, 142, 1) !important;">413</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(72, 35, 116, 1) !important;">441494</span>
+<span style=" font-weight: bold;    color: rgba(70, 51, 127, 1) !important;">441494</span>
 </td>
 </tr>
 <tr>
@@ -1638,7 +1645,7 @@ A
 B
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(37, 131, 142, 1) !important;">1</span>
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">49</span>
@@ -1653,7 +1660,7 @@ B
 <span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">888</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">770659</span>
+<span style=" font-weight: bold;    color: rgba(53, 94, 141, 1) !important;">770659</span>
 </td>
 </tr>
 <tr>
@@ -1661,22 +1668,22 @@ B
 C
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(37, 131, 142, 1) !important;">1</span>
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">10</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">64</span>
+<span style=" font-weight: bold;    color: rgba(70, 51, 127, 1) !important;">64</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(70, 48, 126, 1) !important;">1960</span>
+<span style=" font-weight: bold;    color: rgba(30, 156, 137, 1) !important;">1960</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(70, 10, 93, 1) !important;">344</span>
+<span style=" font-weight: bold;    color: rgba(61, 78, 138, 1) !important;">344</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">402931</span>
+<span style=" font-weight: bold;    color: rgba(71, 45, 123, 1) !important;">402931</span>
 </td>
 </tr>
 <tr>
@@ -1684,22 +1691,45 @@ C
 E
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(37, 131, 142, 1) !important;">1</span>
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(71, 42, 122, 1) !important;">15</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(70, 8, 91, 1) !important;">66</span>
+<span style=" font-weight: bold;    color: rgba(69, 56, 129, 1) !important;">66</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1778</span>
+<span style=" font-weight: bold;    color: rgba(34, 140, 141, 1) !important;">1778</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">328</span>
+<span style=" font-weight: bold;    color: rgba(62, 73, 137, 1) !important;">328</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(147, 215, 65, 1) !important;">745861</span>
+<span style=" font-weight: bold;    color: rgba(55, 91, 141, 1) !important;">745861</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(70, 10, 93, 1) !important;">11</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(72, 35, 116, 1) !important;">57</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(123, 209, 81, 1) !important;">2675</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(70, 52, 128, 1) !important;">271</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">2104483</span>
 </td>
 </tr>
 <tr>
@@ -1707,22 +1737,45 @@ E
 H
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(37, 131, 142, 1) !important;">1</span>
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">1</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(70, 10, 93, 1) !important;">11</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(70, 10, 93, 1) !important;">67</span>
+<span style=" font-weight: bold;    color: rgba(68, 57, 131, 1) !important;">67</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(66, 190, 113, 1) !important;">2692</span>
+<span style=" font-weight: bold;    color: rgba(127, 211, 78, 1) !important;">2692</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(71, 42, 122, 1) !important;">400</span>
+<span style=" font-weight: bold;    color: rgba(52, 97, 141, 1) !important;">400</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(48, 105, 142, 1) !important;">541225</span>
+<span style=" font-weight: bold;    color: rgba(66, 65, 134, 1) !important;">541225</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+J
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">2</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(71, 42, 122, 1) !important;">15</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">43</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">403</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">149</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">126123</span>
 </td>
 </tr>
 </tbody>
@@ -1777,7 +1830,7 @@ A
 <span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">153818</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">245830</span>
+<span style=" font-weight: bold;    color: rgba(40, 125, 142, 1) !important;">245830</span>
 </td>
 </tr>
 <tr>
@@ -1800,7 +1853,7 @@ B
 <span style=" font-weight: bold;    color: rgba(136, 213, 72, 1) !important;">143459</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(169, 219, 51, 1) !important;">242620</span>
+<span style=" font-weight: bold;    color: rgba(41, 123, 142, 1) !important;">242620</span>
 </td>
 </tr>
 <tr>
@@ -1823,7 +1876,7 @@ C
 <span style=" font-weight: bold;    color: rgba(40, 124, 142, 1) !important;">88509</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">138260</span>
+<span style=" font-weight: bold;    color: rgba(71, 43, 122, 1) !important;">138260</span>
 </td>
 </tr>
 <tr>
@@ -1846,7 +1899,30 @@ E
 <span style=" font-weight: bold;    color: rgba(46, 109, 142, 1) !important;">79987</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(169, 219, 51, 1) !important;">242511</span>
+<span style=" font-weight: bold;    color: rgba(41, 123, 142, 1) !important;">242511</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">0</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(70, 6, 90, 1) !important;">14486</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(30, 157, 137, 1) !important;">86494</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(32, 163, 134, 1) !important;">89968</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(147, 215, 65, 1) !important;">145500</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">416541</span>
 </td>
 </tr>
 <tr>
@@ -1869,7 +1945,30 @@ H
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">32138</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(149, 216, 64, 1) !important;">239199</span>
+<span style=" font-weight: bold;    color: rgba(41, 121, 142, 1) !important;">239199</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+J
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">0</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(46, 111, 142, 1) !important;">44830</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(56, 88, 140, 1) !important;">52561</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(62, 73, 137, 1) !important;">51969</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(60, 79, 138, 1) !important;">64585</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">96012</span>
 </td>
 </tr>
 </tbody>
@@ -1924,19 +2023,19 @@ A
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">5.92</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">97.37</span>
+<span style=" font-weight: bold;    color: rgba(58, 83, 139, 1) !important;">97.37</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.34</span>
+<span style=" font-weight: bold;    color: rgba(49, 181, 123, 1) !important;">99.34</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">96.09</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(33, 143, 141, 1) !important;">99.34</span>
+<span style=" font-weight: bold;    color: rgba(49, 181, 123, 1) !important;">99.34</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(33, 143, 141, 1) !important;">99.34</span>
+<span style=" font-weight: bold;    color: rgba(49, 181, 123, 1) !important;">99.34</span>
 </td>
 </tr>
 <tr>
@@ -1944,22 +2043,22 @@ A
 B
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">31.91</span>
+<span style=" font-weight: bold;    color: rgba(31, 158, 137, 1) !important;">31.91</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(35, 137, 142, 1) !important;">97.87</span>
+<span style=" font-weight: bold;    color: rgba(41, 122, 142, 1) !important;">97.87</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(65, 65, 134, 1) !important;">98.94</span>
+<span style=" font-weight: bold;    color: rgba(41, 122, 142, 1) !important;">98.94</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(52, 96, 141, 1) !important;">96.37</span>
+<span style=" font-weight: bold;    color: rgba(72, 35, 116, 1) !important;">96.37</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.94</span>
+<span style=" font-weight: bold;    color: rgba(41, 122, 142, 1) !important;">98.94</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.94</span>
+<span style=" font-weight: bold;    color: rgba(41, 122, 142, 1) !important;">98.94</span>
 </td>
 </tr>
 <tr>
@@ -1967,22 +2066,22 @@ B
 C
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(72, 32, 112, 1) !important;">8.4</span>
+<span style=" font-weight: bold;    color: rgba(72, 21, 104, 1) !important;">8.4</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(50, 100, 142, 1) !important;">97.71</span>
+<span style=" font-weight: bold;    color: rgba(46, 111, 142, 1) !important;">97.71</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(79, 195, 106, 1) !important;">99.24</span>
+<span style=" font-weight: bold;    color: rgba(34, 167, 133, 1) !important;">99.24</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(69, 5, 88, 1) !important;">96.1</span>
+<span style=" font-weight: bold;    color: rgba(68, 2, 86, 1) !important;">96.1</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(45, 113, 142, 1) !important;">99.24</span>
+<span style=" font-weight: bold;    color: rgba(34, 167, 133, 1) !important;">99.24</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(45, 113, 142, 1) !important;">99.24</span>
+<span style=" font-weight: bold;    color: rgba(34, 167, 133, 1) !important;">99.24</span>
 </td>
 </tr>
 <tr>
@@ -1990,22 +2089,45 @@ C
 E
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(72, 38, 119, 1) !important;">9</span>
+<span style=" font-weight: bold;    color: rgba(72, 26, 108, 1) !important;">9</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.33</span>
+<span style=" font-weight: bold;    color: rgba(30, 156, 137, 1) !important;">98.33</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(176, 221, 47, 1) !important;">99.33</span>
+<span style=" font-weight: bold;    color: rgba(48, 180, 124, 1) !important;">99.33</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">96.92</span>
+<span style=" font-weight: bold;    color: rgba(55, 90, 140, 1) !important;">96.92</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.67</span>
+<span style=" font-weight: bold;    color: rgba(161, 218, 56, 1) !important;">99.67</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.67</span>
+<span style=" font-weight: bold;    color: rgba(161, 218, 56, 1) !important;">99.67</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">47.83</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.46</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.73</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.77</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.73</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.73</span>
 </td>
 </tr>
 <tr>
@@ -2013,22 +2135,45 @@ E
 H
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(66, 64, 134, 1) !important;">11.33</span>
+<span style=" font-weight: bold;    color: rgba(71, 42, 122, 1) !important;">11.33</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(56, 88, 140, 1) !important;">97.66</span>
+<span style=" font-weight: bold;    color: rgba(48, 106, 142, 1) !important;">97.66</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.83</span>
+<span style=" font-weight: bold;    color: rgba(48, 106, 142, 1) !important;">98.83</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(63, 72, 137, 1) !important;">96.29</span>
+<span style=" font-weight: bold;    color: rgba(72, 26, 108, 1) !important;">96.29</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(138, 214, 71, 1) !important;">99.61</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(138, 214, 71, 1) !important;">99.61</span>
 </td>
+</tr>
+<tr>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(138, 214, 71, 1) !important;">99.61</span>
+J
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(39, 127, 142, 1) !important;">25.86</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">96.55</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.28</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(72, 27, 109, 1) !important;">96.3</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.28</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.28</span>
 </td>
 </tr>
 </tbody>
@@ -2068,10 +2213,10 @@ Max.
 A
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(103, 204, 92, 1) !important;">92.24</span>
+<span style=" font-weight: bold;    color: rgba(72, 193, 110, 1) !important;">92.24</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(31, 150, 139, 1) !important;">95.36</span>
+<span style=" font-weight: bold;    color: rgba(64, 70, 136, 1) !important;">95.36</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">96.2</span>
@@ -2080,7 +2225,7 @@ A
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">96.09</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">97.02</span>
+<span style=" font-weight: bold;    color: rgba(68, 2, 86, 1) !important;">97.02</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">98.63</span>
@@ -2097,13 +2242,13 @@ B
 <span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">94.48</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">96.9</span>
+<span style=" font-weight: bold;    color: rgba(63, 72, 137, 1) !important;">96.9</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(52, 96, 141, 1) !important;">96.37</span>
+<span style=" font-weight: bold;    color: rgba(72, 35, 116, 1) !important;">96.37</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.53</span>
+<span style=" font-weight: bold;    color: rgba(31, 151, 139, 1) !important;">98.53</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">100</span>
@@ -2114,19 +2259,19 @@ B
 C
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(79, 195, 106, 1) !important;">91.78</span>
+<span style=" font-weight: bold;    color: rgba(53, 183, 121, 1) !important;">91.78</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(46, 109, 142, 1) !important;">95.07</span>
+<span style=" font-weight: bold;    color: rgba(70, 48, 126, 1) !important;">95.07</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(69, 54, 129, 1) !important;">96.32</span>
+<span style=" font-weight: bold;    color: rgba(71, 14, 97, 1) !important;">96.32</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(69, 5, 88, 1) !important;">96.1</span>
+<span style=" font-weight: bold;    color: rgba(68, 2, 86, 1) !important;">96.1</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(72, 23, 105, 1) !important;">97.12</span>
+<span style=" font-weight: bold;    color: rgba(71, 16, 99, 1) !important;">97.12</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(49, 181, 123, 1) !important;">99.63</span>
@@ -2137,19 +2282,42 @@ C
 E
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">93.6</span>
+<span style=" font-weight: bold;    color: rgba(143, 214, 68, 1) !important;">93.6</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">95.99</span>
+<span style=" font-weight: bold;    color: rgba(46, 110, 142, 1) !important;">95.99</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(77, 195, 107, 1) !important;">96.76</span>
+<span style=" font-weight: bold;    color: rgba(68, 59, 132, 1) !important;">96.76</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">96.92</span>
+<span style=" font-weight: bold;    color: rgba(55, 90, 140, 1) !important;">96.92</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(48, 105, 142, 1) !important;">97.59</span>
+<span style=" font-weight: bold;    color: rgba(65, 68, 135, 1) !important;">97.59</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">100</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">94.36</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.29</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.12</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.77</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">99.59</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">100</span>
@@ -2160,22 +2328,45 @@ E
 H
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(33, 145, 140, 1) !important;">89.48</span>
+<span style=" font-weight: bold;    color: rgba(36, 135, 142, 1) !important;">89.48</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(46, 180, 124, 1) !important;">95.57</span>
+<span style=" font-weight: bold;    color: rgba(58, 84, 140, 1) !important;">95.57</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(64, 189, 114, 1) !important;">96.74</span>
+<span style=" font-weight: bold;    color: rgba(68, 57, 131, 1) !important;">96.74</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(63, 72, 137, 1) !important;">96.29</span>
+<span style=" font-weight: bold;    color: rgba(72, 26, 108, 1) !important;">96.29</span>
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(60, 79, 138, 1) !important;">97.42</span>
+<span style=" font-weight: bold;    color: rgba(70, 51, 127, 1) !important;">97.42</span>
 </td>
 <td style="text-align:left;">
 <span style=" font-weight: bold;    color: rgba(52, 96, 141, 1) !important;">99.09</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+J
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(110, 206, 88, 1) !important;">93.01</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(58, 83, 139, 1) !important;">95.56</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(72, 20, 102, 1) !important;">96.36</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(72, 27, 109, 1) !important;">96.3</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(68, 1, 84, 1) !important;">97.01</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">100</span>
 </td>
 </tr>
 </tbody>
@@ -2208,7 +2399,7 @@ A
 B
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(52, 96, 141, 1) !important;">96.37</span>
+<span style=" font-weight: bold;    color: rgba(72, 35, 116, 1) !important;">96.37</span>
 </td>
 </tr>
 <tr>
@@ -2216,7 +2407,7 @@ B
 C
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(69, 5, 88, 1) !important;">96.1</span>
+<span style=" font-weight: bold;    color: rgba(68, 2, 86, 1) !important;">96.1</span>
 </td>
 </tr>
 <tr>
@@ -2224,7 +2415,15 @@ C
 E
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">96.92</span>
+<span style=" font-weight: bold;    color: rgba(55, 90, 140, 1) !important;">96.92</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+F
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(187, 223, 39, 1) !important;">98.77</span>
 </td>
 </tr>
 <tr>
@@ -2232,7 +2431,15 @@ E
 H
 </td>
 <td style="text-align:left;">
-<span style=" font-weight: bold;    color: rgba(63, 72, 137, 1) !important;">96.29</span>
+<span style=" font-weight: bold;    color: rgba(72, 26, 108, 1) !important;">96.29</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+J
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    color: rgba(72, 27, 109, 1) !important;">96.3</span>
 </td>
 </tr>
 </tbody>
@@ -2240,49 +2447,52 @@ H
 </div>
 </div>
 </div>
+<div id="analyes-same-region-v4" class="section level2">
+<h2>Analyes Same Region (V4)</h2>
+</div>
 <div id="quality-filtering" class="section level2">
 <h2>Quality filtering</h2>
-<p>Generally, all ASVs not part of the Domain <strong>Bacteria</strong> and all <strong>Chloroplasts</strong> will be filtered. Study-specific filterings will be applied based on the previous findings.</p>
-<pre class="r"><code>## Quality filtering
-A_clean &lt;- clean(A_dat,A_tax,min_tax = &quot;Family&quot;)</code></pre>
-<pre><code>## Total number of ASVs: 8622 
-##  158 ASVs filtered due to wrong Kingdom
-##  392 ASVs of Class Chloroplast filtered
-##  223 ASVs filtered due to low abundance (&lt; 17 ) and missing information at rank Family 
-##  Number of filtered ASVs: 773 
-##  New number of ASVs: 7849</code></pre>
-<pre class="r"><code>B_clean &lt;- clean(B_dat,B_tax,min_tax = &quot;Family&quot;)</code></pre>
-<pre><code>## Total number of ASVs: 2723 
-##  39 ASVs filtered due to wrong Kingdom
-##  97 ASVs of Class Chloroplast filtered
-##  52 ASVs filtered due to low abundance (&lt; 53 ) and missing information at rank Family 
-##  Number of filtered ASVs: 188 
-##  New number of ASVs: 2535</code></pre>
-<pre class="r"><code>C_clean &lt;- clean(C_dat,C_tax,min_tax = &quot;Family&quot;)</code></pre>
-<pre><code>## Total number of ASVs: 4807 
-##  35 ASVs filtered due to wrong Kingdom
-##  205 ASVs of Class Chloroplast filtered
-##  117 ASVs filtered due to low abundance (&lt; 10 ) and missing information at rank Family 
-##  Number of filtered ASVs: 357 
-##  New number of ASVs: 4450</code></pre>
-<pre class="r"><code>#D_clean &lt;- clean(D_dat,D_tax,min_tax = &quot;Family&quot;,min_abund=100)
-E_clean &lt;- clean(E_dat,E_tax,min_tax = &quot;Family&quot;)</code></pre>
-<pre><code>## Total number of ASVs: 9427 
-##  12 ASVs filtered due to wrong Kingdom
-##  274 ASVs of Class Chloroplast filtered
-##  294 ASVs filtered due to low abundance (&lt; 16 ) and missing information at rank Family 
-##  Number of filtered ASVs: 580 
-##  New number of ASVs: 8847</code></pre>
-<pre class="r"><code>#F_clean &lt;- clean(F_dat,F_tax,min_tax = &quot;Family&quot;,min_abund=100)
-#G_clean &lt;- clean(G_dat,G_tax,min_tax = &quot;Family&quot;,min_abund=100)
-H_clean &lt;- clean(H_dat,H_tax,min_tax = &quot;Family&quot;)</code></pre>
+<pre class="r"><code>A_clean &lt;- clean(A_dat,A_tax,filter=&quot;rel&quot;)</code></pre>
+<pre><code>## Total number of ASVs: 8480 
+##  20 ASVs filtered due to wrong Kingdom
+##  19 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (&lt; 0.001% ) and missing information at rank Family 
+##  6 ASVs filtered due to low sequence length &lt; 150 
+##  Number of filtered ASVs: 45 
+##  New number of ASVs: 8435</code></pre>
+<pre class="r"><code>#B_clean &lt;- clean(B_dat,B_tax,filter=&quot;rel&quot;)
+C_clean &lt;- clean(C_dat,C_tax,filter=&quot;rel&quot;)</code></pre>
+<pre><code>## Total number of ASVs: 4770 
+##  16 ASVs filtered due to wrong Kingdom
+##  8 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (&lt; 0.001% ) and missing information at rank Family 
+##  1 ASVs filtered due to low sequence length &lt; 150 
+##  Number of filtered ASVs: 25 
+##  New number of ASVs: 4745</code></pre>
+<pre class="r"><code>E_clean &lt;- clean(E_dat,E_tax,filter=&quot;rel&quot;)</code></pre>
+<pre><code>## Total number of ASVs: 9385 
+##  13 ASVs filtered due to wrong Kingdom
+##  13 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (&lt; 0.001% ) and missing information at rank Family 
+##  6 ASVs filtered due to low sequence length &lt; 150 
+##  Number of filtered ASVs: 32 
+##  New number of ASVs: 9353</code></pre>
+<pre class="r"><code>F_clean &lt;- clean(F_dat,F_tax,filter=&quot;rel&quot;)</code></pre>
+<pre><code>## Total number of ASVs: 8664 
+##  37 ASVs filtered due to wrong Kingdom
+##  53 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (&lt; 0.001% ) and missing information at rank Family 
+##  69 ASVs filtered due to low sequence length &lt; 150 
+##  Number of filtered ASVs: 159 
+##  New number of ASVs: 8505</code></pre>
+<pre class="r"><code>H_clean &lt;- clean(H_dat,H_tax,filter=&quot;rel&quot;)</code></pre>
 <pre><code>## Total number of ASVs: 2757 
-##  4 ASVs filtered due to wrong Kingdom
-##  108 ASVs of Class Chloroplast filtered
-##  87 ASVs filtered due to low abundance (&lt; 10 ) and missing information at rank Family 
-##  Number of filtered ASVs: 199 
-##  New number of ASVs: 2558</code></pre>
-<pre class="r"><code>#I_clean &lt;- clean(I_dat,I_tax,min_tax = &quot;Family&quot;,min_abund=100)</code></pre>
+##  5 ASVs filtered due to wrong Kingdom
+##  6 ASVs of Class Chloroplast filtered
+##  0 ASVs filtered due to low abundance (&lt; 0.001% ) and missing information at rank Family 
+##  6 ASVs filtered due to low sequence length &lt; 150 
+##  Number of filtered ASVs: 17 
+##  New number of ASVs: 2740</code></pre>
 </div>
 
 

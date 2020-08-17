@@ -10,14 +10,17 @@ tax <- c('Kingdom','Phylum','Class','Order','Family','Genus',"sequence")
 
 prepare_taxonomy <- function(data) {
   
-  d <- data %>% select(ID,all_of(tax)) %>% mutate(ID = paste0("ASV",ID))
+  d <- data %>% dplyr::select(ID,all_of(tax)) %>% mutate(ID = paste0("ASV",ID))
   return(d)
 }
+
+prepare_taxonomy_sameregion <- function(x) {
+  x %>% dplyr::select("ID"=X1,"Kingdom"=X3,"Phylum"=X6,"Class"=X9,"Order"=X12,"Family"=X15,"Genus"=X18) %>% mutate(ID = paste0("ASV",ID))}
 
 ## Transform the data into a tidy format
 tidy_up <- function(data,trim=FALSE) {
   d <- data %>%
-    select(-all_of(tax)) %>%
+    dplyr::select(-all_of(tax)) %>%
     rownames_to_column %>% 
     tidyr::gather(var, value, -rowname) %>% 
     tidyr::spread(rowname, value) %>%
@@ -45,22 +48,22 @@ loadENAMeta <- function(path) {
 ##  Data inspection
 
 inspect_depth <- function(d) {
-  names <- d %>% select(ID) %>% pull
-  d <- d %>% select(-ID)
+  names <- d %>% dplyr::select(ID) %>% pull
+  d <- d %>% dplyr::select(-ID)
   depth <- apply(d,1,sum)
   names(depth) <- names
   return(depth)
 }
 
 inspect_reads <- function(d) {
-  d <- d %>% select(-ID)
+  d <- d %>% dplyr::select(-ID)
   count <- apply(d,2,sum)
   return(count)
 }
 
  inspect_sparsity <- function(d,sp=c("asv")) {
-  names <- d %>% select(ID) %>% pull
-  d <- d %>% select(-ID)
+  names <- d %>% dplyr::select(ID) %>% pull
+  d <- d %>% dplyr::select(-ID)
   
   if(sp=="obs")   {spar <- apply(d,1,function(x) (sum(x==0)/length(x))*100)}
   if(sp=='asv')   {spar <- apply(d,2,function(x) (sum(x==0)/length(x))*100)}
@@ -72,57 +75,86 @@ inspect_reads <- function(d) {
 
 ## Data cleaning functions
 
-
-clean <- function(data,tax,min_tax="Family",seq_length=c(), min_abund=2,quant=T) {
+## Currently, the function only filters based on relative abundance, not taxonomic information, as taxonomic information is present in almost all ASVs
+ 
+ 
+clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.001) {
   
-  ## Filter unwanted kingdoms
-  tot_asv <- nrow(tax) # Record full number of ASVs
-  ft_king <- tax %>% filter(Kingdom=="Bacteria") %>% select(ID) %>% pull # Create Filter
+  id <- data %>% dplyr::select(ID)
+  
+  ## Filter kingdoms
+  tot_asv <- nrow(tax) # Track full number of ASVs
+  
+  ft_king <- tax %>% filter(Kingdom=="Bacteria") %>% dplyr::select(ID) %>% pull # Create Filter
   ft_king_nr <- tot_asv - length(ft_king) # Calculate nr. of filtered ASVs
   
   tax <- tax %>% filter(Kingdom=="Bacteria") # Apply filter to taxonomy 
   new_asv <- nrow(tax) # new numbeer of ASVs
-  d <- data %>% select(all_of(ft_king)) # Apply filter to data
+  d <- data %>% dplyr::select(all_of(ft_king)) # Apply filter to data
   
   ## Filter Chloroplasts
-  ft_chloroplast <- tax %>% filter(Class!="Chloroplast") %>% select(ID) %>% pull # Create Filter
+  ft_chloroplast <- tax %>% filter(Class!="Chloroplast") %>% dplyr::select(ID) %>% pull # Create Filter
   ft_chloroplast_nr <- new_asv - length(ft_chloroplast) # Calculate nr. of filtered ASVs
   
   tax <- tax %>% filter(Class!="Chloroplast") # Apply filter to taxonomy 
   new_asv <- nrow(tax) # new numbeer of ASVs
-  d <- d %>% select(all_of(ft_chloroplast)) # Apply filter to data
+  d <- d %>% dplyr::select(all_of(ft_chloroplast)) # Apply filter to data
   
   ## Filter based on low abundance AND low taxonomic information
   
   abund <- apply(d,2,sum) # Calculate Abundance
-  if(quant==T) {thresh <- summary(abund)[[2]]} else {thresh <- min_abund}
-  ft_abund <- tax %>% filter(abund<thresh) %>% select(ID) %>% pull
-  ft_mintax <- tax %>% filter(ID%in%ft_abund) %>% filter(is.na(!!as.symbol(min_tax))) %>% select(ID) %>% pull
+  
+  if(filter=="quant") {ft_abund <- tax %>% filter(abund<summary(abund)[[3]]) %>% dplyr::select(ID) %>% pull # Create filter based on quantile
+                       thresh <- summary(abund)[[3]]}
+  if(filter == "abs") {ft_abund <- tax %>% filter(abund<abs) %>% dplyr::select(ID) %>% pull # Create filter based on absolute reads
+                       thresh <- abs}
+  if(filter == "rel") {ind <- (abund/sum(d))*100<rel                                  # Create filter based on relative abundance
+                       ft_abund <- tax %>% filter(ind) %>% dplyr::select(ID) %>% pull
+                       thresh <- paste0(rel,"%")}
+  
+  # Apply combined filter -> only if abundance threshold AND missing annotation are are present, ASV will be filtered !: MAYBE BAD IDEA?
+  # %>% filter(is.na(!!as.symbol(min_tax)))
+  
+  ft_mintax <- tax %>% filter(ID%in%ft_abund|is.na(!!as.symbol(min_tax))) %>% dplyr::select(ID) %>% pull
   ft_mintax_nr <- length(ft_mintax)
+  
+  ft_abund_nr <- length(ft_abund)
   
   tax <- tax %>% filter(ID %notin% ft_mintax)
   new_asv <- nrow(tax)
-  d <- d %>% select(-all_of(ft_mintax))
+  d <- d %>% dplyr::select(-all_of(ft_mintax))
   
-  ## Filter minimum taxonomic information
-  #ft_mintax <- tax %>% filter(not.na(!!as.symbol(min_tax))) %>% select(ID) %>% pull # Create Filter
-  #ft_mintax_nr <- new_asv - length(ft_mintax) # Calculate nr. of filtered ASVs
   
-  #tax <- tax %>% filter(not.na(!!as.symbol(min_tax)))
-  #new_asv <- nrow(tax)
-  #d <- d %>% select(all_of(ft_mintax))
+  ## Filter based on sequence length
   
-  tot_filt <- ft_king_nr + ft_chloroplast_nr + ft_mintax_nr
+  seq <- tax %>% dplyr::select(Sequence) %>% convert(chr(Sequence)) %>% pull
+  seq_length <- sapply(str_split(seq,''),length)
+  ft_seqlength <- tax %>% filter(seq_length > 150) %>% dplyr::select(ID) %>% pull
+  ft_seqlength_nr <- nrow(tax)-length(ft_seqlength)
+  tax <- tax %>% filter(ID %in% ft_seqlength)
+  new_asv <- nrow(tax)
   
+  d <- d %>% dplyr::select(all_of(ft_seqlength))
+  
+  tot_filt <- ft_king_nr + ft_chloroplast_nr + ft_mintax_nr + ft_seqlength_nr
+  
+  d <- data.frame(id,d)
   
   cat('Total number of ASVs:',tot_asv,"\n",
       ft_king_nr,'ASVs filtered due to wrong Kingdom\n',
       ft_chloroplast_nr,'ASVs of Class Chloroplast filtered\n',
-      ft_mintax_nr,'ASVs filtered due to low abundance (<',thresh,') and missing information at rank',min_tax,'\n',
+      ft_mintax_nr,'ASVs filtered due to low abundance (<',thresh,')\n',
+      "(Number of ASVs below threshold, but not filtered:",ft_abund_nr,"\n",
+      ft_seqlength_nr,'ASVs filtered due to low sequence length < 150 \n',
       'Number of filtered ASVs:',tot_filt,'\n',
-      'New number of ASVs:',new_asv)
+      'New number of ASVs:',new_asv,"\n")
   return(d)
 }
+
+
+
+# Prepare sameregion taxonomy
+
 
  
 #### Analysis functions ####
