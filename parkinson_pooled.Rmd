@@ -1,0 +1,608 @@
+---
+title: "Parkinson Meta-Analysis"
+author: "Sven Kleine Bardenhorst"
+date: "8 4 2020"
+output:
+  rmdformats::material:
+    highlight: kate
+    thumbnails: true
+    code_folding: show
+    fig_width: 6
+    fig_height: 4
+    df_print: kable
+---
+```{css, echo = FALSE}
+.header-panel {
+    background-color: #940a21;
+    min-height: 144px;
+    position: relative;
+    z-index: 3;
+}
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load packages, message=FALSE, warning=FALSE, include=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+```
+
+# Preparation of data based on same sequence region (V4)
+
+### Load data
+```{r Load data, message=FALSE, warning=FALSE}
+# Load ASV data
+A_data <- readr::read_delim("Data/A_data.txt",delim="\t")
+B_data <- readr::read_delim("Data/B_data.txt",delim="\t")
+C_data <- readr::read_delim("Data/C_data.txt",delim="\t")
+E_data <- readr::read_delim("Data/E_data.txt",delim="\t")
+F_data <- readr::read_delim("Data/F_data.txt",delim="\t")
+H_data <- readr::read_delim("Data/H_data.txt",delim="\t")
+J_data <- readr::read_delim("Data/J_data.txt",delim="\t")
+```
+
+
+### Transform into tidy format
+```{r}
+# transpose into tidy format
+A_dat <- tidy_up(A_data,trim=F)
+B_dat <- tidy_up(B_data,trim=T)
+C_dat <- tidy_up(C_data)
+E_dat <- tidy_up(E_data,trim=T)
+F_dat <- tidy_up(F_data)
+H_dat <- tidy_up(H_data)
+J_dat <- tidy_up(J_data)
+```
+
+
+### Prepare taxonomy based on V4-region trimmed sequences sequences
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+studies <- list("A_Dysbiosisofgutmicrobiota",
+             "B_Alterationofthefecalmicrobiota_2",
+             "C_ColonicbacterialcompositioninParkinson",
+             "E_Gutmicrobiotain",
+             "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
+             "H_EffectofParkinsonsdisease")
+
+path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\Data\\")
+seq_same <- paste("Sequences_sameregion\\")
+tax_same <- paste("Classified_sameregion\\Classified_Unaligned_Sliced_F_Sequences_") 
+
+taxa <- lapply(studies,function(x) read_tsv(paste0(path,tax_same,x,"_noC.txt.align.fasta"),quote="",col_names = F))
+seq <- lapply(studies, function(x) ((seqinr::read.fasta(paste0(path,seq_same,"Unaligned_Sliced_F_Sequences_",x,"_noC.txt.align.fasta"),as.string = T,set.attributes = F))))
+
+seq <- foreach(i=seq_along(seq)) %do% data.frame("ID"=paste0("ASV",names(unlist(seq[[i]]))),"Sequence"=unlist(seq[[i]]))
+
+
+taxon <- lapply(taxa,prepare_taxonomy_sameregion)
+
+A_tax <- taxon[[1]] %>% left_join(seq[[1]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+B_tax <- taxon[[2]] %>% left_join(seq[[2]])  %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+C_tax <- taxon[[3]] %>% left_join(seq[[3]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+E_tax <- taxon[[4]] %>% left_join(seq[[4]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+F_tax <- taxon[[5]] %>% left_join(seq[[5]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+H_tax <- taxon[[6]] %>% left_join(seq[[6]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+```
+
+### Quality filtering
+
+```{r}
+A_clean <- clean(A_dat,A_tax,filter="rel")
+B_clean <- clean(B_dat,B_tax,filter="rel")
+C_clean <- clean(C_dat,C_tax,filter="rel")
+E_clean <- clean(E_dat,E_tax,filter="rel")
+F_clean <- clean(F_dat,F_tax,filter="rel")
+H_clean <- clean(H_dat,H_tax,filter="rel")
+```
+
+
+### Prepare metadata
+```{r message=FALSE, warning=FALSE}
+# Load ENA metadata
+A_Meta_ENA <- loadENAMeta(path="Data/A_meta_ENA.txt") %>% dplyr::select(run_accession,library_name)
+B_Meta_ENA <- loadENAMeta(path="Data/B_meta_ENA.txt")
+#C_Meta <- loadENAMeta(path="Data/C_meta.txt")
+#D_Meta <- loadENAMeta(path="Data/D_meta.txt")
+E_Meta_ENA <- loadENAMeta(path="Data/E_meta_ENA.txt") %>% 
+  dplyr::select(run_accession,sample_title) %>%
+  slice(1:266) %>% # Slice blank controls
+  mutate(Timepoint = str_split(.$sample_title," ",simplify = TRUE)[,2],
+         Subject = str_split(.$sample_title," ",simplify = TRUE)[,1]) %>%
+  dplyr::select(-sample_title)
+
+F_Meta_ENA <- loadENAMeta(path="Data/F_meta_ENA.txt") %>% dplyr::select(run_accession, library_name,experiment_alias)
+G_Meta_ENA <- loadENAMeta(path="Data/G_meta_ENA.txt")
+H_Meta_ENA <- loadENAMeta(path="Data/H_meta_ENA.txt") %>%
+  dplyr::select(run_accession,sample_alias) %>%
+  slice(1:256) %>% # Slice ion torrent
+  mutate(ID = run_accession,
+    Sample = str_split(.$sample_alias,"_",simplify = T)[,1]) %>%
+  dplyr::select(ID,Sample)
+
+
+#I_Meta <- loadENAMeta(path="Data/I_meta.txt")
+J_Meta_ENA <- loadENAMeta(path="Data/J_meta_ENA.txt")
+
+# Load detailed metadata
+
+C_meta1 <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/C_meta.xlsx",sheetIndex = 1, header = T,startRow =2)
+names <- str_remove(colnames(C_meta1),"PD.")
+colnames(C_meta1) <- names
+
+C_meta2 <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/C_meta.xlsx",sheetIndex = 2, header = T,startRow =2)
+names <- str_remove(colnames(C_meta2),"HC.")
+colnames(C_meta2) <- names
+
+C_Meta <- C_meta1 %>% full_join(C_meta2) %>% filter(Feces %in% toupper(C_dat$ID) | Tissue %in% toupper(C_dat$ID))
+
+E_meta <- readr::read_csv("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/E_meta.csv") %>% 
+  left_join(E_Meta_ENA) %>% dplyr::select(run_accession,everything())
+
+H_meta <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/H_meta.xlsx",
+                          sheetIndex = 1, header = T,startRow =1) # Other drugs variable not used and deleted for easier import
+
+J_meta <- readr::read_csv("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/J_meta.csv") %>%
+  dplyr::select(cc,ID,Age,Sex,Batch,CC,Onset,'UPDRS-I','UPDRS-III',Stool_freq,Constipation,Vegetarian,Nicotine,Alcohol,Caffeine,Ferm_Milk,Age_DBS,L_Dopa,Benserazid,Carbidopa,Dopa_Agon,COMT_Inhibitor,MAO_B_Inh,CV_disease)
+```
+
+### Prepare phyloseq objects
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Combine Taxonomies, Metadata and ASV-Data into phyloseq objects
+
+# Study A
+## OTU
+OTU_A <- as.matrix(A_clean[,-1])
+rownames(OTU_A) <- A_dat$ID
+OTU_A <- otu_table(t(OTU_A),taxa_are_rows = T)
+
+## Tax
+tax_A <- as.matrix(A_tax[,-1])
+rownames(tax_A) <- A_tax$ID
+
+tax_A <- tax_table(tax_A)
+
+## Meta
+A_sample <- A_Meta_ENA %>%
+            mutate(pd = substr(.$library_name,1,3),
+                   author = "Pietrucci et al., 2019") %>%
+            mutate(status = ifelse(pd=="CON","HC","PD")) %>%
+            column_to_rownames(var="run_accession") %>% sample_data()
+
+## Combine
+A_phyl <- phyloseq(OTU_A,tax_A,A_sample)
+
+
+# Study B
+
+## OTU
+OTU_B <- as.matrix(B_clean[,-1])
+rownames(OTU_B) <- B_dat$ID
+OTU_B <- otu_table(t(OTU_B),taxa_are_rows = T)
+
+## Tax
+tax_B <- as.matrix(B_tax[,-1])
+rownames(tax_B) <- B_tax$ID
+tax_B <- tax_table(tax_B)
+
+## Meta
+B_sample <- B_Meta_ENA %>%
+  dplyr::select(run_accession,library_name) %>%
+  mutate(status = case_when(startsWith(library_name,"GC") ~ "HC",
+                            startsWith(library_name,"GP") ~ "PD"),
+         author = "Qian et al., 2018") %>%
+  filter(not.na(status)) %>% # Filter out blood metagenome
+  column_to_rownames(var="run_accession") %>%
+  sample_data()
+
+## Combine
+B_phyl <- phyloseq(OTU_B,tax_B,B_sample)
+
+
+# Study C
+## OTU
+OTU_C <- as.matrix(C_clean[,-1])
+rownames(OTU_C) <- toupper(C_dat$ID)
+OTU_C <- otu_table(t(OTU_C),taxa_are_rows = T)
+
+## Tax
+tax_C <- as.matrix(C_tax[,-1])
+rownames(tax_C) <- toupper(C_tax$ID)
+
+tax_C <- tax_table(tax_C)
+
+## Meta
+C_sample <- C_Meta %>%
+  dplyr::select(Case.IDs,Tissue,Feces,everything()) %>%
+  tidyr::gather(Sample,ID,2:3) %>%
+  dplyr::select(Case.IDs,Sample,ID,everything()) %>%
+  filter(ID != 'NA') %>%
+  filter(Sample=="Feces") %>%
+  mutate(status = ifelse(startsWith(Cases,"Parkinson"),"PD","HC"),
+         author = "Keshavarzian et al., 2015") %>%
+  dplyr::select(status,everything()) %>%
+  column_to_rownames(var='ID') %>%
+  sample_data
+
+## Combine
+C_phyl <- phyloseq(OTU_C,tax_C,C_sample)
+
+
+# Study E
+## OTU
+OTU_E <- as.matrix(E_clean[,-1])
+rownames(OTU_E) <- E_dat$ID
+OTU_E <- otu_table(t(OTU_E),taxa_are_rows = T)
+
+## Tax
+tax_E <- as.matrix(E_tax[,-1])
+rownames(tax_E) <- E_tax$ID
+
+tax_E <- tax_table(tax_E)
+
+## Meta
+E_sample <- E_meta %>%
+            filter(Timepoint == "followup") %>%
+            mutate(status = ifelse(Parkinson=="control","HC","PD"),
+                   author = "Aho et al., 2019") %>%
+            dplyr::select(status,everything()) %>%
+            column_to_rownames(var='run_accession') %>%
+            sample_data()
+
+## Combine
+E_phyl <- phyloseq(OTU_E,tax_E,E_sample)
+
+
+# Study F
+## OTU
+OTU_F <- as.matrix(F_clean[,-1])
+rownames(OTU_F) <- F_dat$ID
+OTU_F <- otu_table(t(OTU_F),taxa_are_rows = T)
+
+## Tax
+tax_F <- as.matrix(F_tax[,-1])
+rownames(tax_F) <- F_tax$ID
+
+tax_F <- tax_table(tax_F)
+
+## Meta
+F_sample <- F_Meta_ENA %>%
+  filter(endsWith(library_name,".f")) %>%
+  filter(startsWith(library_name,"PD")|startsWith(library_name,"HC")) %>%
+  mutate(status = ifelse(startsWith(library_name,"PD"),"PD","HC"),
+         author = "Heintz-Buschart et al., 2018") %>%
+  column_to_rownames(var="run_accession") %>% sample_data
+
+
+## Combine
+F_phyl <- phyloseq(OTU_F,tax_F,F_sample)
+
+
+# Study H
+## OTU
+OTU_H <- H_clean %>%
+  left_join(H_Meta_ENA) %>%
+  group_by(Sample) %>%
+  summarize_if(is.numeric,funs(sum)) %>%
+  arrange(desc(Sample))
+id <- substr(OTU_H$Sample,4,8)
+id[40:length(id)] <- paste0("P",id[40:length(id)])
+
+OTU_H$Sample[1:39] <-  paste0('IfM ',substr(id[1:39],1,1),"0",substr(id[1:39],2,4))
+OTU_H$Sample[40:nrow(OTU_H)] <- paste0('IfM ',substr(id[40:length(id)],1,2),"0",substr(id[40:length(id)],3,5))
+
+OTU_H <- OTU_H %>% column_to_rownames(var="Sample") %>% as.matrix %>% t %>% otu_table(taxa_are_rows = T)
+## Tax
+tax_H <- as.matrix(H_tax[,-1])
+rownames(tax_H) <- H_tax$ID
+tax_H <- tax_table(tax_H)
+
+## Meta
+H_sample <- H_meta %>%
+            mutate(status = ifelse(Group =="PD","PD","HC"),
+                   author = "Weis et al., 2019") %>%
+            dplyr::select(status,everything(),-Group) %>%
+            column_to_rownames(var="SampleID") %>%
+            sample_data
+
+## Combine
+H_phyl <- phyloseq(OTU_H,tax_H,H_sample)
+
+
+A_phyl
+B_phyl
+C_phyl
+E_phyl
+F_phyl
+H_phyl
+```
+
+# Pooled analysis of alpha diversity
+
+## Prepare alpha diversity measures
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+dat <- list(A_phyl,
+            B_phyl,
+            C_phyl,
+            E_phyl,
+            F_phyl,
+            H_phyl)
+
+
+estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
+  
+  dat <- lapply(dat,function(x) aggregate_taxa(x,tax))
+  res <- lapply(dat,function(x) {data.frame("richness"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=0),
+                                       "shannon"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=1),
+                                       "inv.simpson"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=2))})
+  met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(author) %>% rownames_to_column("ID"))
+  met1 <- reduce(met,full_join)
+  ls <- unlist(lapply(dat,function(x)  rowSums(t(otu_table(x))))) %>% data.frame("N"=.) %>% rownames_to_column("ID")
+  
+  res <- foreach::foreach(i=1:length(dat)) %do%  {res[[i]] %>% dplyr::mutate(ID=rownames(sample_data(dat[[i]])))}
+  
+  res <- foreach::foreach(i=1:length(dat)) %do% {dat[[i]] %>% phyloseq::sample_data() %>% plyr::mutate(ID=rownames(.)) %>% data.frame() %>% dplyr::select(ID,status) %>% left_join(res[[i]]) %>% plyr::mutate(study=i)}
+ 
+  out <- res %>% reduce(full_join)
+  out <- out %>% left_join(ls,by="ID")
+  out <- out %>% left_join(met1,by="ID")
+  out <- out %>% mutate(author = fct_reorder(author,study))
+  return(out)
+
+}
+
+
+
+#
+#estimate_alpha <- function(dat,tax="Sequence",index=c("Shannon","Simpson","Observed","Chao1"),meta=c("author")) {
+#  
+#  
+#  dat <- lapply(dat,function(x) aggregate_taxa(x,tax))
+#  res <- lapply(dat,function(x) estimate_richness(x,measures=index))
+#  met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(author) %>% rownames_to_column("ID"))
+#  met1 <- reduce(met,full_join)
+#  ls <- unlist(lapply(dat,function(x)  rowSums(t(otu_table(x))))) %>% data.frame("N"=.) %>% rownames_to_column("ID")
+#  
+#  res <- foreach::foreach(i=1:length(dat)) %do%  {res[[i]] %>% mutate(ID=rownames(sample_data(dat[[i]])))}
+#  
+#  res <- foreach::foreach(i=1:length(dat)) %do% {dat[[i]] %>% phyloseq::sample_data() %>% plyr::mutate(ID=rownames(.)) %>% data.frame() %>% #dplyr::select(ID,status) %>% left_join(res[[i]]) %>% plyr::mutate(study=i)}
+# 
+#  out <- res %>% reduce(full_join)
+#  out <- out %>% left_join(ls,by="ID")
+#  out <- out %>% left_join(met1,by="ID")
+#  out <- out %>% mutate(author = fct_reorder(author,study))
+#  return(out)
+#
+#}
+
+alpha_dat <- estimate_alpha(dat)
+```
+
+
+```{r eval=FALSE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE, include=FALSE}
+
+ggplot(aes(x=as.factor(author),y=(richness)),data=alpha_dat) +
+  geom_boxplot(aes(fill=status)) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplot(aes(x=as.factor(author),y=(shannon)),data=alpha_dat) +
+  geom_boxplot(aes(fill=status)) +
+  scale_fill_brewer(palette = "Set1") +
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplot(aes(x=as.factor(author),y=inv.simpson),data=alpha_dat) +
+  geom_boxplot(aes(fill=status)) +
+   scale_fill_brewer(palette = "Set1") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## Estimate alpha diversity by effective number of taxa through hill numbers
+
+The problems with indices like Simpson or Shannon is that they are not diversities by themselves, but only proxies (indices) of the true underlying diversity. However, often every index is treated like a true diversity, which may lead to misleading results for several reasons. At first, indices define diversity in different ways, e.g. some focus solely on the number of present taxa (further referred to as richness), while others incorporate the relative abundance of all present taxa (further referred to as eveness). The combination of speciess richness and eveness into one index makes it hard to interpret. It further leads to the second problem, that some indices do NOT double when the true diversity doubles, hence, they are highly non-linear. As an example, a community with a Shannon-Index ($H'$) of 2 is not twice as diverse as a community with a $H'$ of 1. In addition, on the $H'$-scale, the difference between 1 and 2 is not equal to the difference between 3 and 4. Thus, the location of a mean difference on the $H'$-scale matters. This makes the statisical analysis and interpretation of alpha diversity indices problematic. However, there is a straightforward and intuitive way to define a true diversity in terms of **effective number of species** through hill numbers.
+
+```{r}
+x <- rep(150,50)
+shannon <- function(x) {-sum( (x/sum(x)) * log(x/sum(x)) )}
+s_x <- shannon(x)
+```
+
+Given a specific value of $H'$, we cannot derive the true diversity of the community, as we cannot decompose the value into its richness and eveness parts. However, we still know that two communities with an equal index are always equally diverse. 
+
+Suppose we have two communities with `r length(x)` equally abundant taxa. We can calculate the Shannon-Index for this community with
+
+$$
+H' = - \sum_i p_i * ln  p_i
+$$
+
+
+with $p_i = \frac{n_i}{N}$. For the given example, $H'$ is `r s_x`. Now, we know the $H'$ of a community with `r length(x)` equally abundant taxa. Therefore, we can conclude that every community with an $H'$ of `r s_x` is always as diverse as a community with `r length(x)` equally abundant taxa.
+
+We can make use of this fact, by transforming the $H'$ into the **effective number of species**, which is simply done by exponantation of $H'$.
+
+$$
+\exp(H') = exp(3.912023) = 50
+$$
+The same logic can be applied to other measures of diversity. In fact, the effective number of species based on the most commonly used diversity indices can be calculated directly by the generalized formula
+
+$$
+qD = (\sum_{i_=1}^Sp_i^q)^{1/(1-q)},
+$$
+which is the Hill number of order q. The expression if fully dependent on the choice of q, the exponent of taxa abundances, thus, determining the weight that is assigned to the eveness of taxa. The higher the value of q, the higher the influence of eveness on the value of the index.
+
+Different values of q correspond to the most frequently used diversity measures. Here, we will focus on $q=0$ (species richness), $q=1$ (exponential of the Shannon index; note that it is not exactly 1, as the formula is not defined for $q=1$, but its limit when q tends to 1) and $q=2$ (the inverse of Simpson's concentration index).
+
+### Alpha diveristy analysis through hill numbers
+
+A common problem with all diversity indices is their dependency on the sampling depth (library size). We can inspect this dependency by correlating the value of the hill numbvers of different order with the respective library size.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, results='asis'}
+## Asses whether alpha-diversity associated with sequencing depth
+alpha_dat %>% group_by(author) %>% summarize(Richness = round(cor(richness,N),2),
+                                             Shannon = round(cor(shannon,N),2),
+                                             "Inverse simpson" = round(cor(inv.simpson,N),2)) %>% column_to_rownames("author") %>% t %>% kable(caption = "Correlation of alpha diversity indices with library size") %>% kableExtra::kable_styling("striped")
+```
+
+In our setting, this challenge is even more complex, as the library size is not only different between individuals, but also cluster within studies and sometimes within study groups nested in these studies.
+
+```{r echo=TRUE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE, fig.cap="Average library size per study and per study group."}
+addline_format <- function(x,...){
+    gsub('\\s','\n',x)
+}
+
+#alpha_dat %>% group_by(author,status) %>% summarize(avg_LS = mean(N)) %>%
+#  ggplot(aes(x=author,y=avg_LS,fill=status)) +
+#  geom_bar(stat="identity",position = "dodge") +
+#   scale_fill_brewer(palette="Set1") +
+#  scale_x_discrete(labels=addline_format(unique(alpha_dat$author))) +
+#  theme_sjplot()
+
+alpha_dat %>%
+  ggplot(aes(x=author,y=N,fill=status)) +
+  geom_boxplot() +
+   scale_fill_brewer(palette="Set1") +
+  scale_x_discrete(labels=addline_format(unique(alpha_dat$author))) +
+  theme_sjplot() +
+  ylab("Library size") +
+  xlab("Study") +
+  labs(fill="Disease status")
+  
+```
+
+```{r echo=TRUE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE, fig.cap="Distribution of library size per study and per study group."}
+alpha_dat %>% dplyr::select(status,N,study) %>%
+  ggplot(aes(x=N,fill=status)) +
+  geom_density(alpha=.6) +
+  scale_fill_brewer(palette="Set1") +
+  facet_wrap(~alpha_dat$author,ncol = 3,scales = "free_x") +
+  theme_sjplot() +
+  xlab("Library size") +
+  labs(fill="Disease status")
+```
+
+A common approach to handle unequal library sizes is by rarefaction, thus, sub-sampling from each sample to achieve equal library sizes that allow for fair comparisons However, this approach is highly criticized for several reasons, among which is the discarding of valuable data. Therefore, we will use a poisson model including the library size as an offset, conditioning the estimates on the library size. Using this approach, we will incorporate the uncertainty associated with the library size (cases will be weighted according to their library size), without throwing away any information.
+
+
+
+## Random Effects models for alpha diversity
+
+## Two-stage approach
+
+```{r}
+alpha_dat2 <- alpha_dat %>% dplyr::select(ID,status,everything()) %>% filter(N>1000)
+
+## metafor two-stage approach
+library(metafor)
+
+met_dat <- alpha_dat2 %>%
+  dplyr::select(study,status,richness,N,author) %>%
+  group_by(study,status) %>%
+  summarise(richness = sum(richness),
+            N = sum(N),
+            author = first(author)) %>%
+  pivot_wider(names_from=status,values_from=c(richness,N))
+
+res <- rma(measure = "IRR",x2i=richness_HC,x1i=richness_PD,t2i=N_HC,t1i=N_PD,data=met_dat)
+
+
+summary(res)
+plot(res)
+
+
+forest(res,transf = exp,refline = 1,slab = unique(alpha_dat2$author))
+
+inf <- influence(res)
+plot(inf)
+```
+
+
+## One-stage approach
+
+```{r}
+## One-stage approach
+
+## Asses ICC
+ICC(outcome = "richness",group="study",data=alpha_dat)
+
+
+
+fit <- lme4::glmer(richness~1+(status|study),data=alpha_dat2,family=poisson(link="log"),offset = log(N))
+
+summary(fit)
+
+
+exp(ranef(fit)$study)
+```
+
+
+# Beta diversity 
+
+## Prepare full distance matrix
+
+```{r echo=FALSE, message=FALSE}
+dat <- list(A_phyl,
+            B_phyl,
+            C_phyl,
+            E_phyl,
+            F_phyl,
+            H_phyl)
+
+prepare_beta <- function(dat,meta=c("status","author"),tax="Phylum",method="bray") {
+  
+  ## Combine data to a single dataset
+  d <- lapply(dat, function(x) as.data.frame(t(otu_table(aggregate_taxa(x,tax)))) %>% rownames_to_column("ID"))
+  full_d <- reduce(d,full_join)
+  full_d[is.na(full_d)] <- 0 # Set NA OTU counts to 0
+  
+  full_ID <- full_d[,1] # extraxct patient IDs
+  rownames(full_d) <- full_ID # set rownames to patient IDs
+  d <- full_d[,-1] # filter ID variable
+  filt <- apply(d,1,sum) != 0
+  d <- d[filt,] # Filter observations without any OTU count
+  
+  
+  ## Extract metadata
+  met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(meta) %>% rownames_to_column("ID"))
+  met1 <- reduce(met,full_join) %>% filter(filt)
+  
+  ## Calculate distance matrix
+  dist <- vegdist(d,method=method)
+  
+  
+  out <- list("dist"=dist,
+              "meta"=met1,
+              "data"=d)
+  
+  }
+
+beta <- prepare_beta(dat,tax="Family")
+
+cmdscale(beta$dist,k=3) %>%
+  as.data.frame() %>%
+  rownames_to_column("ID") %>%
+  dplyr::left_join(beta$meta) %>%
+  ggplot(aes(x=V1,y=V2,z=V3,col=author,shape=status)) +
+  geom_point()
+
+adonis(beta$dist~status,data = beta$meta,strata = beta$meta$author)
+
+
+plot(betadisper(beta$dist,beta$meta$author))
+
+```
+
+# Differential abundance
+
+##
+
+
+
+

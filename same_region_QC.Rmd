@@ -1,0 +1,263 @@
+---
+title: "Same region data QC"
+author: "Sven Kleine Bardenhorst"
+date: "12 5 2020"
+output:
+  html_document: 
+    theme: simplex
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(seqinr)
+library(tidyverse)
+library(knitr)
+```
+
+
+```{r echo=FALSE}
+studies <- list("A_Dysbiosisofgutmicrobiota",
+             "B_Alterationofthefecalmicrobiota",
+             "C_ColonicbacterialcompositioninParkinson",
+             "E_Gutmicrobiotain",
+             "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
+             "H_EffectofParkinsonsdisease")
+
+seq_quality_check <- function(study) {
+  
+  path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\Data\\") 
+  seq_same <- paste("Sequences_sameregion\\")
+  tax_same <- paste("Classified_sameregion\\") 
+  tax_orig <- paste("Classified_originalsequences\\") 
+  
+  seq_path <- paste0(path,seq_same,"Unaligned_Sliced_F_Sequences_",study,"_noC.txt.align.fasta")
+  tax1_path <- paste0(path,tax_same,"Classified_Unaligned_Sliced_F_Sequences_",study,"_noC.txt.align.fasta")
+  tax2_path <- paste0(path,tax_orig,"Classified_F_Sequences_",study,"_noC.txt.fasta")
+  
+  seq <- seqinr::read.fasta(seq_path,as.string = T,set.attributes = F)
+  tax1 <- suppressWarnings(readr::read_tsv(tax1_path,col_names = F,col_types = cols(),quote=""))
+  tax2 <- suppressWarnings(readr::read_tsv(tax2_path,col_names = F,col_types = cols(),quote=""))
+  
+  
+  seq_string <- as.vector(unlist(seq))
+  total <- length(seq_string)
+  ind <- as.numeric(names(seq[seq_string==""]))
+  unique_seq <- length(unique(seq_string))
+  
+  n_missing <- length(ind)
+  in_tax <- sum(tax2$X1 %in% ind)
+  
+  if(in_tax > 0) {
+    domain <- unlist(tax2[tax2$X1 %in% ind,]$X3)
+    domain <- as.vector(table(domain)["Bacteria"])
+  } else{
+    domain <- 0
+  }
+  
+  # Compare taxonomy
+  t1 <- tax1 %>% filter(X8 > .8) %>% filter(X17 > .8) %>% select(X1,X6,X15) %>% arrange(X1)
+  t2 <- tax2 %>% select(X1,X6,X15) %>% arrange(X1)
+  t2 <- t2 %>% filter(X1 %in% t1$X1) %>% arrange(X1)
+  t1 <- t1 %>% filter(X1 %in% t2$X1) %>% arrange(X1)
+  
+  uneq_phyl <- round(sum(t1$X6 != t2$X6)/length(t1$X1)*100,2)
+  uneq_fam <- round(sum(t1$X15 != t2$X15)/length(t1$X1)*100,2)
+  
+  n_uneq_fam <- sum(t1$X15 != t2$X15)
+  
+  phy_CI <- tax2 %>% filter(X3=="Bacteria") %>% filter(X1 %in% ind) %>% select(X8) %>% pull %>% median %>% round(2)
+  thres <- tax2 %>% filter(X3=="Bacteria") %>% filter(X1 %in% ind) %>% select(X8) %>% filter(X8 > .8) %>% count %>% pull
+  
+  
+  cat("Total number of sequences: ",total,"\n",
+      "Number of unique sequences: ",unique_seq,"\n",
+      "Number of empty sequences: ",n_missing,"\n",
+      "Empty sequences of domain Bacteria: ", domain,"\n",
+      "Percentage of differential classification - Phylum:",uneq_phyl,"\n",
+      "Percentage of differential classification - Family:", uneq_fam,"\n",
+      "Avg. uncertainty of original classification - Phylum:", phy_CI,"\n",
+      "Nr. of Phyla above threshold .8:",thres,"\n\n")
+  
+  return(list("Total seq."=total,
+              "Unique seq."=unique_seq,
+              "Empty seq."=n_missing,
+              "Domain Bac."=domain,
+              "Diff_Phyl"=uneq_phyl,
+              "Diff_Fam"=uneq_fam,
+              "Phyl_CI median"=phy_CI,
+              "Nr. of Phyla above threshold"=thres))
+  
+}
+```
+
+```{r echo=FALSE}
+res <- sapply(studies,seq_quality_check,simplify = T)
+colnames(res) <- c("A","B","C","E","F","H")
+
+kable(res)
+```
+
+```{r include=FALSE}
+uneq_fam <- function(study) {
+  path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\Data\\") 
+  seq_same <- paste("Sequences_sameregion\\")
+  tax_same <- paste("Classified_sameregion\\") 
+  tax_orig <- paste("Classified_originalsequences\\") 
+  
+  seq_path <- paste0(path,seq_same,"Unaligned_Sliced_F_Sequences_",study,"_noC.txt.align.fasta")
+  tax1_path <- paste0(path,tax_same,"Classified_Unaligned_Sliced_F_Sequences_",study,"_noC.txt.align.fasta")
+  tax2_path <- paste0(path,tax_orig,"Classified_F_Sequences_",study,"_noC.txt.fasta")
+  
+  seq <- seqinr::read.fasta(seq_path,as.string = T,set.attributes = F)
+  tax1 <- suppressWarnings(readr::read_tsv(tax1_path,col_names = F,col_types = cols(),quote=""))
+  tax2 <- suppressWarnings(readr::read_tsv(tax2_path,col_names = F,col_types = cols(),quote=""))
+  
+  
+  seq_string <- as.vector(unlist(seq))
+  total <- length(seq_string)
+  ind <- as.numeric(names(seq[seq_string==""]))
+  unique_seq <- length(unique(seq_string))
+  
+  n_missing <- length(ind)
+  in_tax <- sum(tax2$X1 %in% ind)
+  
+  if(in_tax > 0) {
+    domain <- unlist(tax2[tax2$X1 %in% ind,]$X3)
+    domain <- as.vector(table(domain)["Bacteria"])
+  } else{
+    domain <- 0
+  }
+  
+  # Compare taxonomy
+  t1 <- tax1 %>% filter(X3=="Bacteria") %>% filter(X8 > .8) %>% filter(X17 > .8) %>% select(X1,X6,X15) %>% arrange(X1)
+  t2 <- tax2 %>% select(X1,X6,X15) %>% arrange(X1)
+  t2 <- t2 %>% filter(X1 %in% t1$X1) %>% arrange(X1)
+  t1 <- t1 %>% filter(X1 %in% t2$X1) %>% arrange(X1)
+  
+   tax1 %>% filter(X3=="Bacteria") %>% filter(X8 > .8) %>% filter(X17 > .8) %>% filter(X15=="Bacteroidaceae")
+  
+  
+  
+  uneq_phyl <- round(sum(t1$X6 != t2$X6)/length(t1$X1)*100,2)
+  uneq_fam <- round(sum(t1$X15 != t2$X15)/length(t1$X1)*100,2)
+  
+  n_uneq_fam <- sum(t1$X15 != t2$X15)
+  length(unique(t1$X15[t1$X15 != t2$X15]))
+  names <- unique(t1$X15[t1$X15 != t2$X15])
+  seq <- unique(t1$X1[t1$X15 != t2$X15])
+    
+  fams <- cbind(t1$X15[t1$X15 != t2$X15],t2$X15[t1$X15 != t2$X15])
+  ind <- t1
+  colnames(fams) <- c("Same","Original")
+  
+  return(list(names,fams,ind,seq))
+}
+
+families <- sapply(studies,function(x) uneq_fam(x)[1])
+```
+
+
+```{r include=FALSE}
+```
+
+## Families that changed from original classification to new classification (all datasets)
+```{r}
+reduce(families,union)
+```
+
+The table below shows the number of sequences (column 2) of each family (column 1) that changed the classification. The last column shows, to how many different families the sequences were assgined in the original classifications. For example, 177 sequences classified as Bacteroidaceae were originally assigned to 9 different families.
+
+
+```{r echo=FALSE}
+families <- sapply(studies,function(x) uneq_fam(x)[2])
+reduced_fam <- reduce(families,rbind) %>% as_tibble %>% arrange(Same)
+red_fam <- reduced_fam %>% group_by(Same) %>% summarize(Nr = length(Original),
+                                             Orig = length(unique(Original))) %>% arrange(desc(Nr)) 
+red_fam %>% kable
+
+```
+
+We can have a representative look at the first Families to see which Families were classified originally.
+
+
+
+```{r}
+reduced_fam %>% filter(Same=="Bacteroidaceae") %>% group_by(Original) %>% count %>% arrange(desc(n)) %>% kable
+reduced_fam %>% filter(Same=="Lachnospiraceae") %>% group_by(Original) %>% count %>% arrange(desc(n)) %>% kable
+reduced_fam %>% filter(Same=="Ruminococcaceae") %>% group_by(Original) %>% count %>% arrange(desc(n)) %>% kable
+reduced_fam %>% filter(Same=='"Prevotellaceae"') %>% group_by(Original) %>% count %>% arrange(desc(n)) %>% kable
+```
+
+## Abundance of differential classified sequences
+```{r abundance of sequences in original data, echo=FALSE, message=FALSE, warning=FALSE}
+
+sequences <- sapply(studies,function(x) uneq_fam(x)[4])
+sequences <- sequences %>% unlist %>% unique
+
+
+source("functions.R")
+A_data <- readr::read_delim("Data/A_data.txt",delim="\t")
+B_data <- readr::read_delim("Data/B_data.txt",delim="\t")
+C_data <- readr::read_delim("Data/C_data.txt",delim="\t")
+E_data <- readr::read_delim("Data/E_data.txt",delim="\t")
+F_data <- readr::read_delim("Data/F_data.txt",delim="\t")
+H_data <- readr::read_delim("Data/H_data.txt",delim="\t")
+
+A_dat <- tidy_up(A_data,trim=F)
+B_dat <- tidy_up(B_data,trim=T)
+C_dat <- tidy_up(C_data)
+E_dat <- tidy_up(E_data,trim=T)
+F_dat <- tidy_up(F_data)
+H_dat <- tidy_up(H_data)
+
+# prepare taxonomies 
+A_tax <- prepare_taxonomy(A_data) %>% select(-ID)
+B_tax <- prepare_taxonomy(B_data) %>% select(-ID)
+C_tax <- prepare_taxonomy(C_data) %>% select(-ID)
+E_tax <- prepare_taxonomy(E_data) %>% select(-ID)
+F_tax <- prepare_taxonomy(F_data) %>% select(-ID)
+H_tax <- prepare_taxonomy(H_data) %>% select(-ID)
+
+taxa <- list(A_tax,
+             B_tax,
+             C_tax,
+             E_tax,
+             F_tax,
+             H_tax)
+
+full_tax <- reduce(taxa,rbind)
+
+orig_data <- list(A_dat[,-1],
+                  B_dat[,-1],
+                  C_dat[,-1],
+                  E_dat[,-1],
+                  F_dat[,-1],
+                  H_dat[,-1])
+                  
+
+check_abundance <- function(dat,seq) {
+  
+  ind <- colnames(dat)[as.numeric(colnames(dat)) %in% seq]
+  ind <- paste0("ASV",ind)
+  total <- dat %>% sum
+  
+  changed <- dat %>% select(all_of(ind)) %>% sum
+  chang <- dat %>% select(all_of(ind)) %>% colSums
+  perc <- round(changed/total*100,2)
+  n <- length(ind)
+  
+  return(list("Percentage of total abundance"=perc,
+              "Nr. of sequences observed"=n))
+  }
+
+abundance <- t(sapply(orig_data,function(x) check_abundance(dat=x,seq=sequences)))
+rownames(abundance) <- c("A","B","C","E","F","H")
+
+kable(abundance)
+
+```
+
