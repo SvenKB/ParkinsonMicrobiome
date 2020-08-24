@@ -63,7 +63,7 @@ J_dat <- tidy_up(J_data)
 
 
 ### Prepare taxonomy based on V4-region trimmed sequences sequences
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 studies <- list("A_Dysbiosisofgutmicrobiota",
              "B_Alterationofthefecalmicrobiota_2",
              "C_ColonicbacterialcompositioninParkinson",
@@ -71,7 +71,9 @@ studies <- list("A_Dysbiosisofgutmicrobiota",
              "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
              "H_EffectofParkinsonsdisease")
 
-path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\Data\\")
+project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+
+path <- paste0(project_path,"Data\\")
 seq_same <- paste("Sequences_sameregion\\")
 tax_same <- paste("Classified_sameregion\\Classified_Unaligned_Sliced_F_Sequences_") 
 
@@ -131,24 +133,25 @@ H_Meta_ENA <- loadENAMeta(path="Data/H_meta_ENA.txt") %>%
 J_Meta_ENA <- loadENAMeta(path="Data/J_meta_ENA.txt")
 
 # Load detailed metadata
+project_path
 
-C_meta1 <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/C_meta.xlsx",sheetIndex = 1, header = T,startRow =2)
+C_meta1 <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/C_meta.xlsx"),sheetIndex = 1, header = T,startRow =2)
 names <- str_remove(colnames(C_meta1),"PD.")
 colnames(C_meta1) <- names
 
-C_meta2 <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/C_meta.xlsx",sheetIndex = 2, header = T,startRow =2)
+C_meta2 <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/C_meta.xlsx"),sheetIndex = 2, header = T,startRow =2)
 names <- str_remove(colnames(C_meta2),"HC.")
 colnames(C_meta2) <- names
 
 C_Meta <- C_meta1 %>% full_join(C_meta2) %>% filter(Feces %in% toupper(C_dat$ID) | Tissue %in% toupper(C_dat$ID))
 
-E_meta <- readr::read_csv("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/E_meta.csv") %>% 
+E_meta <- readr::read_csv(paste0(project_path,"Data/Meta/E_meta.csv")) %>% 
   left_join(E_Meta_ENA) %>% dplyr::select(run_accession,everything())
 
-H_meta <- xlsx::read.xlsx("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/H_meta.xlsx",
+H_meta <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/H_meta.xlsx"),
                           sheetIndex = 1, header = T,startRow =1) # Other drugs variable not used and deleted for easier import
 
-J_meta <- readr::read_csv("C:/Users/kleinebardenhorst/Documents/Projects/ParkinsonMicrobiome/ParkinsonMicrobiome/Data/Meta/J_meta.csv") %>%
+J_meta <- readr::read_csv(paste0(project_path,"Data/Meta/J_meta.csv")) %>%
   dplyr::select(cc,ID,Age,Sex,Batch,CC,Onset,'UPDRS-I','UPDRS-III',Stool_freq,Constipation,Vegetarian,Nicotine,Alcohol,Caffeine,Ferm_Milk,Age_DBS,L_Dopa,Benserazid,Carbidopa,Dopa_Agon,COMT_Inhibitor,MAO_B_Inh,CV_disease)
 ```
 
@@ -341,8 +344,8 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
   
   dat <- lapply(dat,function(x) aggregate_taxa(x,tax))
   res <- lapply(dat,function(x) {data.frame("richness"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=0),
-                                       "shannon"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=1),
-                                       "inv.simpson"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=2))})
+                                       "shannon"=round(hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=1),0),
+                                       "inv.simpson"=round(hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=2)),0)})
   met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(author) %>% rownames_to_column("ID"))
   met1 <- reduce(met,full_join)
   ls <- unlist(lapply(dat,function(x)  rowSums(t(otu_table(x))))) %>% data.frame("N"=.) %>% rownames_to_column("ID")
@@ -387,7 +390,7 @@ alpha_dat <- estimate_alpha(dat)
 ```
 
 
-```{r eval=FALSE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE}
 
 ggplot(aes(x=as.factor(author),y=(richness)),data=alpha_dat) +
   geom_boxplot(aes(fill=status)) +
@@ -436,13 +439,13 @@ The same logic can be applied to other measures of diversity. In fact, the effec
 $$
 qD = (\sum_{i_=1}^Sp_i^q)^{1/(1-q)},
 $$
-which is the Hill number of order q. The expression if fully dependent on the choice of q, the exponent of taxa abundances, thus, determining the weight that is assigned to the eveness of taxa. The higher the value of q, the higher the influence of eveness on the value of the index.
+which is the Hill number of order q. The expression if fully dependent on the choice of q, the exponent of taxa abundances, thus, determining the weight that is assigned to the evenness of taxa. The higher the value of q, the higher the influence of eveness on the value of the index.
 
 Different values of q correspond to the most frequently used diversity measures. Here, we will focus on $q=0$ (species richness), $q=1$ (exponential of the Shannon index; note that it is not exactly 1, as the formula is not defined for $q=1$, but its limit when q tends to 1) and $q=2$ (the inverse of Simpson's concentration index).
 
 ### Alpha diveristy analysis through hill numbers
 
-A common problem with all diversity indices is their dependency on the sampling depth (library size). We can inspect this dependency by correlating the value of the hill numbvers of different order with the respective library size.
+A common problem with all diversity indices is their dependency on the sampling depth (library size). We can inspect this dependency by correlating the value of the hill numbers of different order with the respective library size.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE, results='asis'}
 ## Asses whether alpha-diversity associated with sequencing depth
@@ -497,7 +500,7 @@ A common approach to handle unequal library sizes is by rarefaction, thus, sub-s
 ## Two-stage approach
 
 ```{r}
-alpha_dat2 <- alpha_dat %>% dplyr::select(ID,status,everything()) %>% filter(N>1000)
+alpha_dat2 <- alpha_dat %>% dplyr::select(ID,status,everything()) %>% filter(N>10)
 
 ## metafor two-stage approach
 library(metafor)
@@ -512,15 +515,7 @@ met_dat <- alpha_dat2 %>%
 
 res <- rma(measure = "IRR",x2i=richness_HC,x1i=richness_PD,t2i=N_HC,t1i=N_PD,data=met_dat)
 
-
-summary(res)
-plot(res)
-
-
 forest(res,transf = exp,refline = 1,slab = unique(alpha_dat2$author))
-
-inf <- influence(res)
-plot(inf)
 ```
 
 
@@ -536,12 +531,71 @@ ICC(outcome = "richness",group="study",data=alpha_dat)
 
 fit <- lme4::glmer(richness~1+(status|study),data=alpha_dat2,family=poisson(link="log"),offset = log(N))
 
-summary(fit)
+names <- alpha_dat2 %>% group_by(study) %>% slice(1) %>% dplyr::select(author)
 
+exp(ranef(fit)$study) %>% t() %>% kable %>% kableExtra::kable_styling()
 
-exp(ranef(fit)$study)
 ```
 
+## Sensitivity to library size
+
+```{r}
+range <- alpha_dat %>% filter(study == 2 & N > 0) %>% dplyr::select(N) %>% range
+```
+
+
+There are some studies in which the library size is highly variable, e.g. the study by *Qian et al. (2018)* ranges from `r range[1] ` to `r range[2]` reads per sample. As samples with low reads may be very unreliable/uninformative, we may decide on a cutt-off value for a minimum library size. To make a more informed choice, we may conduct a sensitivity analysis to get a feeling for the influence of the library size on the results.
+For this sensitivity analysis, we will perform the analysis repeatedly for different minimum library sizes and plot the coefficients as a function of library size.
+
+```{r}
+
+sensitivity_ls <- function(data,index="richness",stepsize=1000,length=50) {
+  
+  n.seq <- seq(from=range(data$N)[1], to=range(data$N)[2],by=stepsize)[1:length]
+  
+  data.list <- lapply(n.seq, function(x) {data[data$N>x,]} )
+  names(data.list) <- n.seq
+
+  fitModel <- function(x) {fit <- lme4::glmer(as.formula(paste0(index,"~1+(status|study)")),data=x,family=poisson(link="log"),offset = log(N))
+                              exp(ranef(fit)$study)}
+  
+  res <- vector(mode = "list", length = length)
+  res <- foreach(i=seq_along(data.list)) %do% fitModel(data.list[[i]])
+  res <- lapply(res,function(x) x %>% rownames_to_column(var = "study") )
+  foreach(i=seq_along(res)) %do% {res[[i]][,ncol(res[[i]])+1] <- n.seq[[i]]}
+  
+  
+  plot.dat <- res %>% reduce(full_join) %>% mutate(N = V4) %>% dplyr::select(-V4) %>% mutate(study= as.numeric(study))
+  
+  samp_size <- function(data) {data %>% group_by(study) %>% summarize(s.size = n(),
+                                                   ratio = sum(status=="PD")/sum(status=="HC"))}
+  
+  ss <- lapply(data.list,samp_size)
+  
+  ss1 <- foreach(i=seq_along(ss)) %do% {ss[[i]] %>% mutate(N=as.numeric(names(ss)[[i]]))} 
+  ss2 <- ss1 %>% reduce(full_join)
+  
+  plot.dat <- plot.dat %>% left_join(ss2)
+  
+  ggplot(data=plot.dat,aes(x=N,y=statusPD,col=as.factor(study))) +
+    geom_smooth() +
+    annotate("text",x=min(plot.dat$N),y=plot.dat$statusPD[plot.dat$N==min(plot.dat$N)]+0.005,label=plot.dat$s.size[plot.dat$N==min(plot.dat$N)]) +
+    annotate("text",x=max(plot.dat$N),y=plot.dat$statusPD[plot.dat$N==max(plot.dat$N)]+0.005,label=plot.dat$s.size[plot.dat$N==max(plot.dat$N)]) 
+  
+}
+```
+
+```{r fig.height=5, fig.width=10, fig.cap="Sensitivity to library size - richness."}
+sensitivity_ls(alpha_dat2, index = "richness")
+```
+
+```{r fig.height=5, fig.width=10, fig.cap="Sensitivity to library size - shannon."}
+sensitivity_ls(alpha_dat2, index = "shannon")
+```
+
+```{r fig.height=5, fig.width=10, fig.cap="Sensitivity to library size - inv.simpson."}
+sensitivity_ls(alpha_dat2, index = "inv.simpson")
+```
 
 # Beta diversity 
 
@@ -601,7 +655,12 @@ plot(betadisper(beta$dist,beta$meta$author))
 
 # Differential abundance
 
-##
+## Univariate negative binomial mixed models
+
+
+
+
+## Non-parametric univariate permutation tests
 
 
 
