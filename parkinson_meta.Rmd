@@ -72,6 +72,7 @@ C_dat <- tidy_up(C_data)
 E_dat <- tidy_up(E_data,trim=T)
 F_dat <- tidy_up(F_data)
 H_dat <- tidy_up(H_data)
+I_dat <- tidy_up(I_data)
 J_dat <- tidy_up(J_data)
 
 ```
@@ -88,12 +89,13 @@ C_dat %>% inspect_reads() %>% summary,
 E_dat %>% inspect_reads() %>% summary,
 F_dat %>% inspect_reads() %>% summary,
 H_dat %>% inspect_reads() %>% summary,
+I_dat %>% inspect_reads() %>% summary,
 J_dat %>% inspect_reads() %>% summary) %>%
-  `rownames<-`(c('A','B','C','E','F','H','J')) %>%
+  `rownames<-`(c('A','B','C','E','F','H','I','J')) %>%
   round(0) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
-   select(Study,everything(.)) %>%
+   dplyr::select(Study,everything(.)) %>%
    mutate_if(is.numeric, function(x) {
     cell_spec(x, bold = T, 
               color = spec_color(x, end = 0.9))
@@ -113,11 +115,12 @@ rbind("A"=A_dat %>% inspect_depth() %>% summary,
 "E" = E_dat %>% inspect_depth() %>% summary,
 "F" = F_dat %>% inspect_depth() %>% summary,
 "H" = H_dat %>% inspect_depth() %>% summary,
+"I" = I_dat %>% inspect_depth() %>% summary,
 "J" = J_dat %>% inspect_depth() %>% summary)  %>%
    round(0) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.)) %>%
-   select(Study,everything(.)) %>%
+   dplyr::select(Study,everything(.)) %>%
    mutate_if(is.numeric, function(x) {
     cell_spec(x, bold = T, 
               color = spec_color(x, end = 0.9))
@@ -185,12 +188,34 @@ rbind("A"=A_dat %>% inspect_sparsity(sp='total'),
 "E" = E_dat %>% inspect_sparsity(sp='total'),
 "F" = F_dat %>% inspect_sparsity(sp='total'),
 "H" = H_dat %>% inspect_sparsity(sp='total'),
+"I" = I_dat %>% inspect_sparsity(sp='total'),
 "J" = J_dat %>% inspect_sparsity(sp='total')) %>%
   round(2) %>%
    as_tibble(rownames = NA) %>%
    mutate(Study = row.names(.),
           Sparsity = V1) %>%
-   select(Study,Sparsity) %>%
+   dplyr::select(Study,Sparsity) %>%
+   mutate_if(is.numeric, function(x) {
+    cell_spec(x, bold = T, 
+              color = spec_color(x, end = 0.9))
+  }) %>%
+  kable(escape = F) %>%
+  kable_styling(bootstrap_options = c("striped", "hover",'condensed'))
+```
+
+```{r}
+rbind("A"=A_clean %>% inspect_sparsity(sp='total'),
+"B" = B_clean %>% inspect_sparsity(sp='total'),
+"C" = C_clean %>% inspect_sparsity(sp='total'),
+"E" = E_clean %>% inspect_sparsity(sp='total'),
+"F" = F_clean %>% inspect_sparsity(sp='total'),
+"H" = H_clean %>% inspect_sparsity(sp='total'),
+"I" = I_clean %>% inspect_sparsity(sp='total')) %>%
+  round(2) %>%
+   as_tibble(rownames = NA) %>%
+   mutate(Study = row.names(.),
+          Sparsity = V1) %>%
+   dplyr::select(Study,Sparsity) %>%
    mutate_if(is.numeric, function(x) {
     cell_spec(x, bold = T, 
               color = spec_color(x, end = 0.9))

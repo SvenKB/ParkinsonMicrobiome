@@ -21,11 +21,12 @@ library(knitr)
 
 ```{r echo=FALSE}
 studies <- list("A_Dysbiosisofgutmicrobiota",
-             "B_Alterationofthefecalmicrobiota",
+             "B_Alterationofthefecalmicrobiota_2",
              "C_ColonicbacterialcompositioninParkinson",
              "E_Gutmicrobiotain",
              "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
-             "H_EffectofParkinsonsdisease")
+             "H_EffectofParkinsonsdisease",
+             "I_UnravellingGutMicrobiotas")
 
 seq_quality_check <- function(study) {
   
