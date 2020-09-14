@@ -82,8 +82,8 @@ author.names <- c("Pietrucci et al., 2019",
            "Weis et al., 2019",
            "Barichella et al., 2019")
 
-project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -410,7 +410,7 @@ prevalence_per_phylum(C_phyl) %>% kable(caption=paste0(author.names[[3]])) %>% k
 
 prevalence_per_phylum(E_phyl) %>% kable(caption=paste0(author.names[[4]])) %>% kable_styling()
 
-prevalence_per_phylum(F_phyl) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
+prevalence_per_phylum(F_phyl)) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
 
 prevalence_per_phylum(H_phyl) %>% kable(caption=paste0(author.names[[6]])) %>% kable_styling()
 
@@ -534,10 +534,6 @@ alpha_dat %>% group_by(author) %>% summarize(Richness = round(cor(richness,N),2)
 In our setting, this challenge is even more complex, as the library size is not only different between individuals, but also cluster within studies and sometimes within study groups nested in these studies.
 
 ```{r echo=TRUE, fig.height=7, fig.width=10, message=FALSE, warning=FALSE, fig.cap="Average library size per study and per study group."}
-addline_format <- function(x,...){
-    gsub('\\s','\n',x)
-}
-
 #alpha_dat %>% group_by(author,status) %>% summarize(avg_LS = mean(N)) %>%
 #  ggplot(aes(x=author,y=avg_LS,fill=status)) +
 #  geom_bar(stat="identity",position = "dodge") +
@@ -778,11 +774,13 @@ results.phyl %>% kable() %>% kable_styling()
 
 ```{r}
 ggplot(data=full.dat,aes(x=author,y=Bacteroidetes,fill=status)) +
-  geom_boxplot() +
+  geom_violin() + 
+  geom_jitter() +
   scale_x_discrete(labels=addline_format(unique(full.dat$author)))
 
-ggplot(data=full.dat,aes(x=author,y=Firmicutes+1,fill=status)) +
-  geom_boxplot() +
+ggplot(data=full.dat,aes(x=author,y=Firmicutes,fill=status)) +
+  geom_violin() + 
+  geom_jitter() +
   scale_x_discrete(labels=addline_format(unique(alpha_dat$author)))
 
 full.dat %>% filter(author=="Weis et al., 2019") %>% dplyr::select(status,Bacteroidetes) %>% group_by(status) %>%summarize(no_bacteroidetes = sum(Bacteroidetes==0))

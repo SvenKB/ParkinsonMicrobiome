@@ -163,7 +163,7 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
 ## Currently, the function only filters based on relative abundance, not taxonomic information, as taxonomic information is present in almost all ASVs
  
  
-clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.001) {
+clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.01) {
   
   id <- data %>% dplyr::select(ID)
   
@@ -185,7 +185,7 @@ clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel"
   new_asv <- nrow(tax) # new numbeer of ASVs
   d <- d %>% dplyr::select(all_of(ft_chloroplast)) # Apply filter to data
   
-  ## Filter based on low abundance AND low taxonomic information
+  ## Filter based on low abundance AND/OR low taxonomic information
   
   abund <- apply(d,2,sum) # Calculate Abundance
   
@@ -259,7 +259,7 @@ prevalence_per_phylum <- function(phyl) {
                       tax_table(ps))
   prevdf <- prevdf %>% arrange(Phylum)
   prev <- plyr::ddply(prevdf, "Phylum", function(df1){cbind(mean(df1$Prevalence),sum(df1$Prevalence))})
-  colnames(prev) <- c("Phylum","Avg. Abundance", "Total Abundance")
+  colnames(prev) <- c("Phylum","Avg. Prevalence", "Total Prevalence")
   return(prev)
 }
 
@@ -297,9 +297,10 @@ prevalence_by_abundance <- function(phyl,thrs=0.05) {
   ggplot(aes(x=TotalAbundance,y=prev.frac,color=Phylum),data=prevdf) +
     geom_point() +
     facet_wrap(~Phylum,scales = "free") +
-    theme_sjplot2() +
-    xlab("Total abundance") +
-    ylab("Prevalcne (fraction of samples)") +
+    theme_minimal() +
+    scale_x_log10() +
+    xlab("Total abundance[log]") +
+    ylab("Prevalence (fraction of samples)") +
     theme(legend.position="none")
 }
 
@@ -380,4 +381,13 @@ summarize_univariate <- function(fit) {
   names(out) <- c("estimate","p.value","theta")
   return(out)
   
+}
+
+##########################
+#### Helper functions ####
+##########################
+
+
+addline_format <- function(x,...){
+  gsub('\\s','\n',x)
 }
