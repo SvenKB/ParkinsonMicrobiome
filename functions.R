@@ -163,7 +163,7 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
 ## Currently, the function only filters based on relative abundance, not taxonomic information, as taxonomic information is present in almost all ASVs
  
  
-clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.01) {
+clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.001) {
   
   id <- data %>% dplyr::select(ID)
   
@@ -237,8 +237,72 @@ clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel"
 }
 
 
+###################################
+#### Data exploration function ####
+###################################
 
-# Prepare sameregion taxonomy
+
+## calculate number of ASVs assigned to one Phylum
+features_per_phylum <- function(phyl) {table(tax_table(phyl)[, "Phylum"], exclude = NULL)}
+
+
+## Calculate average abundance of all ASVs in a Phylum and total abundance
+prevalence_per_phylum <- function(phyl) {
+  ps <- subset_taxa(phyl,!is.na(Phylum))
+  # Compute prevalence of each feature, store as data.frame
+  prevdf = apply(X = otu_table(ps),
+                 MARGIN = ifelse(taxa_are_rows(ps), yes = 1, no = 2),
+                 FUN = function(x){sum(x > 0)})
+  # Add taxonomy and total read counts to this data.frame
+  prevdf = data.frame(Prevalence = prevdf,
+                      TotalAbundance = taxa_sums(ps),
+                      tax_table(ps))
+  prevdf <- prevdf %>% arrange(Phylum)
+  prev <- plyr::ddply(prevdf, "Phylum", function(df1){cbind(mean(df1$Prevalence),sum(df1$Prevalence))})
+  colnames(prev) <- c("Phylum","Avg. Abundance", "Total Abundance")
+  return(prev)
+}
+
+
+## Plot the fraction of samples in which a taxon appears against its abundance by Phylum
+prevalence_by_abundance <- function(phyl,thrs=0.05) {
+  
+  n <- nsamples(phyl)
+  threshold <- thrs*n
+  ps <- subset_taxa(phyl,!is.na(Phylum))
+  prevdf = apply(X = otu_table(ps),
+                 MARGIN = ifelse(taxa_are_rows(ps), yes = 1, no = 2),
+                 FUN = function(x){sum(x > 0)})
+  # Add taxonomy and total read counts to this data.frame
+  prevdf = data.frame(Prevalence = prevdf,
+                      TotalAbundance = taxa_sums(ps),
+                      tax_table(ps))
+  
+  keepTaxa <- rownames(prevdf)[(prevdf$Prevalence >= threshold)]
+  
+  ps0 <- prune_taxa(keepTaxa,ps)
+  prevdf = apply(X = otu_table(ps0),
+                 MARGIN = ifelse(taxa_are_rows(ps0), yes = 1, no = 2),
+                 FUN = function(x){sum(x > 0)})
+  # Add taxonomy and total read counts to this data.frame
+  prevdf = data.frame(Prevalence = prevdf,
+                      TotalAbundance = taxa_sums(ps0),
+                      tax_table(ps0))
+  
+  
+  prevdf <- prevdf %>%
+    arrange(Phylum) %>%
+    mutate(prev.frac = Prevalence/n)
+  
+  ggplot(aes(x=TotalAbundance,y=prev.frac,color=Phylum),data=prevdf) +
+    geom_point() +
+    facet_wrap(~Phylum,scales = "free") +
+    theme_sjplot2() +
+    xlab("Total abundance") +
+    ylab("Prevalcne (fraction of samples)") +
+    theme(legend.position="none")
+}
+
 
 
 ############################ 

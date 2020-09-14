@@ -9,7 +9,7 @@ output:
     code_folding: show
     fig_width: 6
     fig_height: 4
-    df_print: kable
+    df_print: paged
 ---
 ```{css, echo = FALSE}
 .header-panel {
@@ -74,8 +74,16 @@ studies <- list("A_Dysbiosisofgutmicrobiota",
              "H_EffectofParkinsonsdisease",
              "I_UnravellingGutMicrobiotas")
 
-#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+author.names <- c("Pietrucci et al., 2019",
+           "Qian et al., 2018",
+           "Keshavarzian et al., 2015",
+           "Aho et al., 2019",
+           "Heintz-Buschart et al., 2018",
+           "Weis et al., 2019",
+           "Barichella et al., 2019")
+
+project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -113,6 +121,12 @@ F_clean <- clean(F_dat,F_tax,filter="rel")
 H_clean <- clean(H_dat,H_tax,filter="rel")
 I_clean <- clean(I_dat,I_tax,filter="rel")
 
+
+#ind <- I_tax[I_tax$Phylum=="Bacteroidetes","ID"] %>% pull
+
+#apply(I_dat[,ind],1,sum)
+
+#I_clean[,names(I_clean) %in% ind]
 ```
 
 
@@ -369,6 +383,73 @@ H_phyl
 I_phyl
 
 ```
+
+# Data inspection
+
+## Number of taxa per phylum
+```{r}
+dat <- list(A_phyl,
+            B_phyl,
+            C_phyl,
+            E_phyl,
+            F_phyl,
+            H_phyl,
+            I_phyl)
+
+fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
+rownames(fpp) <- author.names
+fpp
+```
+## Prevelance of taxa per phylum
+```{r}
+prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
+
+prevalence_per_phylum(B_phyl) %>% kable(caption=paste0(author.names[[2]])) %>% kable_styling()
+
+prevalence_per_phylum(C_phyl) %>% kable(caption=paste0(author.names[[3]])) %>% kable_styling()
+
+prevalence_per_phylum(E_phyl) %>% kable(caption=paste0(author.names[[4]])) %>% kable_styling()
+
+prevalence_per_phylum(F_phyl) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
+
+prevalence_per_phylum(H_phyl) %>% kable(caption=paste0(author.names[[6]])) %>% kable_styling()
+
+prevalence_per_phylum(I_phyl) %>% kable(caption=paste0(author.names[[7]])) %>% kable_styling()
+```
+
+## Prevalence by total abundance
+```{r, fig.cap = "Pietrucci et al., 2019"}
+prevalence_by_abundance(A_phyl,thrs = 0)
+```
+
+```{r, fig.cap = "Qian et al., 2018"}
+prevalence_by_abundance(B_phyl,thrs = 0)
+
+```
+
+```{r, fig.cap = "Keshavarzian et al., 2015"}
+prevalence_by_abundance(C_phyl,thrs = 0)
+```
+
+
+```{r, fig.cap = "Aho et al., 2019"}
+prevalence_by_abundance(E_phyl,thrs = 0)
+```
+
+
+```{r, fig.cap = "Heintz-Buschart et al., 2018"}
+prevalence_by_abundance(F_phyl,thrs = 0)
+```
+
+
+```{r, fig.cap = "Weis et al., 2019"}
+prevalence_by_abundance(H_phyl,thrs = 0)
+```
+
+```{r, fig.cap = "Barichella et al., 2019"}
+prevalence_by_abundance(I_phyl,thrs = 0)
+```
+
 
 # Pooled analysis of alpha diversity
 
