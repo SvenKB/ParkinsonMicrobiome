@@ -163,7 +163,7 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
 ## Currently, the function only filters based on relative abundance, not taxonomic information, as taxonomic information is present in almost all ASVs
  
  
-clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.01) {
+clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.001) {
   
   id <- data %>% dplyr::select(ID)
   
@@ -356,6 +356,63 @@ sensitivity_ls <- function(data,index="richness",stepsize=1000,length=50) {
     annotate("text",x=max(plot.dat$N),y=plot.dat$statusPD[plot.dat$N==max(plot.dat$N)]+0.005,label=plot.dat$s.size[plot.dat$N==max(plot.dat$N)]) 
   
 }
+
+
+## Permutation based differential abundance testing
+
+perm_DA <- function(otu,group,meta,type=c("mean","g.mean"),n.perm=10000,strata=NULL,plot=F) {
+  
+  otu <- unlist(otu)
+  N <- length(otu)
+  # Create grouping variable  
+  Z <- group
+  ## Function to compute test statistic as log ratio of mean absolut abundances
+  meanDiff <- function(i,otu,Z){
+    Z <- Z[i]
+    log(mean(otu[Z=="PD"])/mean(otu[Z=="HC"]))
+  }
+  # Calculate relative abundances
+  RA <- unlist(otu/sum(otu))  
+  ## Calculate test statistic as ratio of geometric means of relative abundances -- COULD BE WEIGHTED BY ABS SAMPLE SIZE
+  g.meanDiff <- function(i,RA,Z){
+    Z <- Z[i]
+    g.mean(RA[Z=="PD"]) - g.mean(RA[Z=="HC"])
+  }
+  #### Construct permutation scheme, restricted to adjust for strata if necessary
+  if(is.null(strata)==T) {
+    Z.set <- shuffleSet(n=N,nset=n.perm,how(nperm=n.perm))
+  } else {
+    Z.set <- shuffleSet(n=N,nset=n.perm,how(blocks=strata,
+                                            nperm=n.perm)) 
+  }
+  
+  #### Calculate empirical distributons of test statistics
+  if(type=="mean") {
+    # Calculate test statistic per permutation
+    theta_hat <- apply(Z.set,1,g.meanDiff,RA=RA,Z=Z)
+    # Calculate observed test statistic
+    theta <- g.meanDiff(seq_len(N),RA,Z)
+  }
+  if (type=="g.mean") {
+    # Calculate test statistic per permutation
+    theta_hat <- apply(Z.set,1,meanDiff,otu=otu,Z=Z)
+    # Calculate observed test statistic
+    theta <- abs.meanDiff(seq_len(N),RA,Z)
+  }
+  #### Calculate p-value
+  thetas <- sum(theta_hat >= theta)
+  p <- round(thetas / (n.perm+1),4)
+  
+  #### Prepate output
+  if(plot==T) {
+    plot(density(theta_hat))
+    abline(v=theta)
+  }
+  return(p)
+}
+
+
+
 
 ##################################
 #### Summary / plot functions ####

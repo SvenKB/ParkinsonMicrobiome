@@ -400,56 +400,145 @@ fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
 rownames(fpp) <- author.names
 fpp
 ```
-## Prevelance of taxa per phylum
-```{r}
-prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
 
-prevalence_per_phylum(B_phyl) %>% kable(caption=paste0(author.names[[2]])) %>% kable_styling()
 
-prevalence_per_phylum(C_phyl) %>% kable(caption=paste0(author.names[[3]])) %>% kable_styling()
-
-prevalence_per_phylum(E_phyl) %>% kable(caption=paste0(author.names[[4]])) %>% kable_styling()
-
-prevalence_per_phylum(F_phyl)) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
-
-prevalence_per_phylum(H_phyl) %>% kable(caption=paste0(author.names[[6]])) %>% kable_styling()
-
-prevalence_per_phylum(I_phyl) %>% kable(caption=paste0(author.names[[7]])) %>% kable_styling()
-```
-
-## Prevalence by total abundance
+## Prevelance and abundance of taxa per phylum
+### Pietrucci et al., 2019
 ```{r, fig.cap = "Pietrucci et al., 2019"}
+prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
 prevalence_by_abundance(A_phyl,thrs = 0)
 ```
+* Deinococcus-Thermus
+  + only one taxon
+  + appears in only one subject
+* Spirochaetes
+  + only one taxon
+  + appears in only one subject
+* Elusimicrobia !?
+  + only 5 taxa
+  + appears in only 2.5% of cases on average
+  + abundance between 300-1000
 
+### Qian et al., 2018
 ```{r, fig.cap = "Qian et al., 2018"}
+prevalence_per_phylum(B_phyl) %>% kable(caption=paste0(author.names[[2]])) %>% kable_styling()
 prevalence_by_abundance(B_phyl,thrs = 0)
-
 ```
 
+* candidate division WPS-2 
+  + only one taxon
+  + appears in one subject
+  + low abundance < 150
+* Deferribacteres
+  + low prevalence
+  + appear in two subjects
+  + low abundance < 150
+* Deinococcus-Thermus
+  + low prevalence
+  + one subject
+  + low abundance < 300
+* Planctomycetes
+  + one taxon
+  + one subject
+  + low abundance < 150
+* Tenericutes
+  + one taxon
+  + one subject
+  + but, HIGH abundance > 16000
+
+
+### Keshavarzian et al., 2015
 ```{r, fig.cap = "Keshavarzian et al., 2015"}
+prevalence_per_phylum(C_phyl) %>% kable(caption=paste0(author.names[[3]])) %>% kable_styling()
 prevalence_by_abundance(C_phyl,thrs = 0)
 ```
 
+* Planctomycetes
+* Spirochaetes
+* Tenericutes
+  + low prevalence
+  + one subject on average
+  + abundance ~ 1300
+* Fusobacteria
+  + low prevalence
+  + one subject on average
+  + suber low abundance < 25
 
+### Aho et al., 2019
 ```{r, fig.cap = "Aho et al., 2019"}
+prevalence_per_phylum(E_phyl) %>% kable(caption=paste0(author.names[[4]])) %>% kable_styling()
 prevalence_by_abundance(E_phyl,thrs = 0)
 ```
 
+* Deferribacteres
+  + one taxon
+  + six subjects
+  + low abundance ~ 200
+* Elusimicrobia
+  + one taxon
+  + one subject
+  + abundance ~ 500
+* Fusobacteria
+  + 3 taxa
+  + low prevalence < 1
+  + extreme range in abundance - 300 < abundance < 10000
 
+### Heintz-Buschart et al., 2018
 ```{r, fig.cap = "Heintz-Buschart et al., 2018"}
+prevalence_per_phylum(F_phyl) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
 prevalence_by_abundance(F_phyl,thrs = 0)
 ```
+* Armatimonadetes
+* candidate division WPS-1
+* candidate division WPS-2
+* Chloroflexi
+* Chrysiogenetes
+* Deferribacteres
+* Deinococcus-Thermus
+* Gemmatimonadetes
+* Hydrogenedentes
+* Ignavibacteriae
+* Planctomycetes
+* Spirochaetes
+* Elusimicrobia
+  + one taxon
+  + three subjects
+  + abundance ~ 2000
 
-
+### Weis et al., 2019
 ```{r, fig.cap = "Weis et al., 2019"}
+prevalence_per_phylum(H_phyl) %>% kable(caption=paste0(author.names[[6]])) %>% kable_styling()
 prevalence_by_abundance(H_phyl,thrs = 0)
 ```
 
+* Chloroflexi
+  + one taxon
+  + one subject
+  + low abundance < 200
+* Tenericutes
+  + three taxa
+  + two subjects
+  + low abundance < 350
+
+
+
+### Barichella et al., 2019
 ```{r, fig.cap = "Barichella et al., 2019"}
+prevalence_per_phylum(I_phyl) %>% kable(caption=paste0(author.names[[7]])) %>% kable_styling()
 prevalence_by_abundance(I_phyl,thrs = 0)
 ```
-
+* Deferribacteres
+  + one taxon
+  + three subjects
+  + low abundance < 400
+* Elusimicrobia
+  + one taxon
+  + two subjects
+  + abundance ~ 1600
+* Tenericutes
+  + one taxon
+  + one subject
+  + abundance ~ 4000
 
 # Pooled analysis of alpha diversity
 
@@ -691,10 +780,7 @@ plot(betadisper(beta$dist,beta$meta$author))
 
 ```
 
-
-# Differential abundance - Phylum level
-
-## Dirichlet multinomial mixture clustering
+# Dirichlet multinomial mixture clustering
 ```{r}
 dat <- list(A_phyl,
             B_phyl,
@@ -748,11 +834,35 @@ df %>% kable %>% kable_styling()
 heatmapdmn(tax.counts,fit1=dm.fit[[1]], fitN=best.fit, ntaxa=15)
 ```
 
+# Firmicuts / Bacteroidetes ratio
+```{r}
+FB.dat <- full.dat %>%
+  mutate(Firmicutes = Firmicutes+1,
+         Bacteroidetes = Bacteroidetes +1,
+         FB_ratio = ((Firmicutes)/Bacteroidetes)) %>%
+  dplyr::select(ID,status,author,N,FB_ratio,Firmicutes,Bacteroidetes)
 
+FB.dat %>% group_by(status) %>% summarize(FB = median(FB_ratio))
+
+
+ggplot(aes(x=author,y=FB_ratio,fill=status),data=FB.dat) +
+  geom_boxplot() +
+  scale_x_discrete(labels=addline_format(unique(FB.dat$author))) +
+  scale_y_log10()
+  
+fit.fb <- glmer(as.factor(status) ~ scale(FB_ratio) + (1|author),data=FB.dat,family = binomial,control = glmerControl(optimizer = "bobyqa"),
+    nAGQ = 10)
+
+summary(fit.fb)
+
+round(FB.dat$FB_ratio,4)
+```
+
+# Differential abundance - Phylum level
 
 ## Univariate negative binomial mixed models
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 taxa <- names(full.dat)[-c(1:4)] # Extract all taxa names
 
 univ.fit <- sapply(taxa,fitZINBMM,simplify = F)
@@ -788,38 +898,25 @@ full.dat %>% filter(author=="Weis et al., 2019") %>% dplyr::select(status,Bacter
 ```
 
 
-
-
-
 ```{r}
 full.dat %>% group_by(author,status) %>% summarise_if(is.numeric,funs(sum)) %>% data.table::data.table()
 ```
 
-
-## Non-parametric univariate permutation tests
-
-
+## Permutation based differential abundance
 ```{r}
-FB.dat <- full.dat %>%
-  mutate(Firmicutes = Firmicutes+1,
-         Bacteroidetes = Bacteroidetes +1,
-         FB_ratio = ((Firmicutes)/Bacteroidetes)) %>%
-  dplyr::select(ID,status,author,N,FB_ratio,Firmicutes,Bacteroidetes)
 
-FB.dat %>% group_by(status) %>% summarize(FB = median(FB_ratio))
+otu <- full.dat %>% dplyr::select(-c(1:4))
+meta <- full.dat %>% dplyr::select(c(1:4))
 
+group <- meta$status
+strata <- meta$author
+weights <- meta$N
 
-ggplot(aes(x=author,y=FB_ratio,fill=status),data=FB.dat) +
-  geom_boxplot() +
-  scale_x_discrete(labels=addline_format(unique(FB.dat$author))) +
-  scale_y_log10()
-  
-fit.fb <- glmer(as.factor(status) ~ scale(FB_ratio) + (1|author),data=FB.dat,family = binomial,control = glmerControl(optimizer = "bobyqa"),
-    nAGQ = 10)
+apply(otu,2,perm_DA,group=group,type="mean",n.perm=9999,strata=strata,plot=F)
+apply(otu,2,perm_DA,group=group,type="g.mean",n.perm=9999,strata=strata,plot=F)
 
-summary(fit.fb)
-
-round(FB.dat$FB_ratio,4)
 ```
+
+
 
 
