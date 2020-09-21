@@ -384,6 +384,21 @@ I_phyl
 
 ```
 
+## Filter samples with library size below 10000 reads
+```{r}
+A_phyl <- prune_samples(sample_sums(A_phyl)>=10000, A_phyl)
+B_phyl <- prune_samples(sample_sums(B_phyl)>=10000, B_phyl) ## 19 Samples filtered
+C_phyl <- prune_samples(sample_sums(C_phyl)>=10000, C_phyl) ## 2 samples filtered
+E_phyl <- prune_samples(sample_sums(E_phyl)>=10000, E_phyl) ## 2 Samples filtered
+F_phyl <- prune_samples(sample_sums(F_phyl)>=10000, F_phyl) ## 1 sample filtered
+H_phyl <- prune_samples(sample_sums(H_phyl)>=10000, H_phyl)
+I_phyl <- prune_samples(sample_sums(I_phyl)>=10000, I_phyl) ## 47 samples filtered
+
+```
+
+
+
+
 # Data inspection
 
 ## Number of taxa per phylum
@@ -396,6 +411,9 @@ dat <- list(A_phyl,
             H_phyl,
             I_phyl)
 
+saveRDS(dat,"C:\\Users\\kleinebardenhorst\\Documents\\Projects\\MicrobiomeBenchmark\\example_data.RDS")
+
+
 fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
 rownames(fpp) <- author.names
 fpp
@@ -403,6 +421,10 @@ fpp
 
 
 ## Prevelance and abundance of taxa per phylum
+We can have a look at the prevalence of the phyla to see whether a phylum is dominated by a single taxon or by many different taxa. Prevelance here means, whether a specific taxon is present in a subject. As example, the total prevalence of Acidobateria in **Pietrucci et al., 2019** means, that - in total - the 4 taxa (as identified in table above) of the phylum Acidobacteria appeared 55 times. On average, each taxon appeared 13.75 times, indicating that the prevalence of the taxa are relatively equally distributed within the phylum Acidobacteria.
+The tables should always be interpreted in combination with the table above (and the figures for abundance information).
+
+
 ### Pietrucci et al., 2019
 ```{r, fig.cap = "Pietrucci et al., 2019"}
 prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
@@ -541,6 +563,26 @@ prevalence_by_abundance(I_phyl,thrs = 0)
   + abundance ~ 4000
 
 # Pooled analysis of alpha diversity
+
+
+## Alpha disversity analysis by rarefaction and interpolation of Hill Numbers
+```{r}
+A_next <- iNEXT::iNEXT(data.frame(t(A_dat[,-1])),q=0)
+p <- ggiNEXT(A_next,type = 1) +
+  theme(legend.position = "none")
+
+
+p.dat <- fortify(A_next,type=1)
+
+p.dat$method <- factor(p.dat$method, c("interpolated", "extrapolated"),c("interpolation", "extrapolation"))
+
+ggplot(aes(x=x,y=y,fill=site,col=site),data=p.dat) +
+  geom_line(aes(linetype=method),size=1,alpha=.4) +
+  theme(legend.position = "none")
+
+```
+
+
 
 ## Prepare alpha diversity measures
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
@@ -791,6 +833,7 @@ dat <- list(A_phyl,
             I_phyl)
 
 ## Prepare data on Phylum level
+
 full.dat <- prepare_DA_data(dat,tax="Phylum")
 full.dat <- full.dat %>% dplyr::select(ID,status,author,N,everything()) ## Arrange data in new order
 
@@ -858,6 +901,18 @@ summary(fit.fb)
 round(FB.dat$FB_ratio,4)
 ```
 
+# Network analysis
+
+```{r eval=FALSE, include=FALSE}
+
+A_phyl
+
+n.model <- SpiecEasi::spiec.easi(A_phyl,method="glasso",lambda.min.ratio=1e-2,
+                           nlambda=20, pulsar.params=list(rep.num=50))
+
+```
+
+
 # Differential abundance - Phylum level
 
 ## Univariate negative binomial mixed models
@@ -904,7 +959,6 @@ full.dat %>% group_by(author,status) %>% summarise_if(is.numeric,funs(sum)) %>% 
 
 ## Permutation based differential abundance
 ```{r}
-
 otu <- full.dat %>% dplyr::select(-c(1:4))
 meta <- full.dat %>% dplyr::select(c(1:4))
 
@@ -912,11 +966,46 @@ group <- meta$status
 strata <- meta$author
 weights <- meta$N
 
-apply(otu,2,perm_DA,group=group,type="mean",n.perm=9999,strata=strata,plot=F)
-apply(otu,2,perm_DA,group=group,type="g.mean",n.perm=9999,strata=strata,plot=F)
+
+cores <- detectCores()-2
+cl <- makeCluster(cores)
+clusterEvalQ(cl, library("permute"))
+
+perm.p <- parApply(cl=cl,otu,2,perm_DA,group=group,type="mean",n.perm=99999,strata=strata,plot=F)
+stop_for_problems(cl)
+
+data.frame("p.value"=perm.p,"FDR"=p.adjust(perm.p,method="fdr"))
 
 ```
 
 
+```{r}
 
+ggplot(data=full.dat,aes(x=author,y=Verrucomicrobia,fill=status)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  scale_x_discrete(labels=addline_format(unique(alpha_dat$author)))
+
+```
+
+## Stan - negative binomial
+```{r}
+otu <- full.dat %>% dplyr::select(-c(1:4))
+meta <- full.dat %>% dplyr::select(c(1:4))
+
+y <- full.dat %>% dplyr::select(Verrucomicrobia) %>% pull
+N <- length(y)
+x <- full.dat %>% dplyr::select(status) %>% mutate(status = case_when(status=="HC"~0,
+                                                                      status=="PD"~1)) %>% pull
+
+library(rstan)
+
+sm <- stan_model("stan_model.stan")
+
+m <- sampling(sm, data = list(N = N, y = y, x = x),
+  pars = c("b0", "b1", "phi"),
+  iter = 500, chains = 4)
+
+rstan::traceplot(m, inc_warmup = FALSE,nrow=3)
+```
 

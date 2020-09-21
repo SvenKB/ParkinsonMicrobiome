@@ -163,7 +163,7 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
 ## Currently, the function only filters based on relative abundance, not taxonomic information, as taxonomic information is present in almost all ASVs
  
  
-clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.001) {
+clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel","quant"),abs=100,rel=0.005) {
   
   id <- data %>% dplyr::select(ID)
   
@@ -188,6 +188,14 @@ clean <- function(data,tax,min_tax="Family",seq_length=c(), filter=c("abs","rel"
   ## Filter based on low abundance AND/OR low taxonomic information
   
   abund <- apply(d,2,sum) # Calculate Abundance
+  #samp <- t(apply(d,1,function(x) x/sum(x)))
+  #
+  #filter_samp <- function(x,r=rel,prop=0.3) {
+  #  n <- length(x)
+  #  s <- sum(x>r)
+  #  filt <- ifelse(s/n < 0.1,TRUE,FALSE)
+  #  return(filt)
+  #}
   
   if(filter=="quant") {ft_abund <- tax %>% filter(abund<summary(abund)[[3]]) %>% dplyr::select(ID) %>% pull # Create filter based on quantile
                        thresh <- summary(abund)[[3]]}
@@ -360,24 +368,28 @@ sensitivity_ls <- function(data,index="richness",stepsize=1000,length=50) {
 
 ## Permutation based differential abundance testing
 
-perm_DA <- function(otu,group,meta,type=c("mean","g.mean"),n.perm=10000,strata=NULL,plot=F) {
+perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=10000,strata=NULL,plot=F) {
   
-  otu <- unlist(otu)
-  N <- length(otu)
+  #otu <- unlist(otu)
+  RA <- unlist(otu/sum(otu)) 
+  N <- length(RA)
   # Create grouping variable  
   Z <- group
+  depth <- unlist(depth)
+  
   ## Function to compute test statistic as log ratio of mean absolut abundances
-  meanDiff <- function(i,otu,Z){
+  meanDiff <- function(i,RA,Z,weighted=F,weights=c()){
     Z <- Z[i]
-    log(mean(otu[Z=="PD"])/mean(otu[Z=="HC"]))
+    w <- weights
+    if(weighted==F) {
+      log(mean(RA[Z=="PD"])/mean(RA[Z=="HC"]))
+    } else {
+      log(weighted.mean(RA[Z=="PD"],w=w[Z=="PD"])/weighted.mean(RA[Z=="HC"],w=w[Z=="HC"]))
+    }
   }
+  
   # Calculate relative abundances
-  RA <- unlist(otu/sum(otu))  
-  ## Calculate test statistic as ratio of geometric means of relative abundances -- COULD BE WEIGHTED BY ABS SAMPLE SIZE
-  g.meanDiff <- function(i,RA,Z){
-    Z <- Z[i]
-    g.mean(RA[Z=="PD"]) - g.mean(RA[Z=="HC"])
-  }
+  
   #### Construct permutation scheme, restricted to adjust for strata if necessary
   if(is.null(strata)==T) {
     Z.set <- shuffleSet(n=N,nset=n.perm,how(nperm=n.perm))
@@ -387,17 +399,17 @@ perm_DA <- function(otu,group,meta,type=c("mean","g.mean"),n.perm=10000,strata=N
   }
   
   #### Calculate empirical distributons of test statistics
-  if(type=="mean") {
+  if(type=="weighted") {
     # Calculate test statistic per permutation
-    theta_hat <- apply(Z.set,1,g.meanDiff,RA=RA,Z=Z)
+    theta_hat <- apply(Z.set,1,meanDiff,RA=RA,Z=Z,weighted=T,weights=depth)
     # Calculate observed test statistic
-    theta <- g.meanDiff(seq_len(N),RA,Z)
+    theta <- meanDiff(seq_len(N),RA,Z,weighted=T,weights=depth)
   }
-  if (type=="g.mean") {
+  if (type=="mean") {
     # Calculate test statistic per permutation
-    theta_hat <- apply(Z.set,1,meanDiff,otu=otu,Z=Z)
+    theta_hat <- apply(Z.set,1,meanDiff,RA=RA,Z=Z)
     # Calculate observed test statistic
-    theta <- abs.meanDiff(seq_len(N),RA,Z)
+    theta <- meanDiff(seq_len(N),RA,Z)
   }
   #### Calculate p-value
   thetas <- sum(theta_hat >= theta)
@@ -410,7 +422,6 @@ perm_DA <- function(otu,group,meta,type=c("mean","g.mean"),n.perm=10000,strata=N
   }
   return(p)
 }
-
 
 
 
@@ -447,4 +458,13 @@ summarize_univariate <- function(fit) {
 
 addline_format <- function(x,...){
   gsub('\\s','\n',x)
+}
+
+g.mean <- function(x,seq.depth=1,weighted=F, na.rm=TRUE){
+  w <- scale(N)
+  if(weighted == F) {
+    exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+  } else {
+    exp(sum((w*log(x[x > 0])), na.rm=na.rm) / sum(w))
+  }
 }
