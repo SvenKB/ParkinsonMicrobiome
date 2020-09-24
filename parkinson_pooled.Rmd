@@ -411,8 +411,6 @@ dat <- list(A_phyl,
             H_phyl,
             I_phyl)
 
-saveRDS(dat,"C:\\Users\\kleinebardenhorst\\Documents\\Projects\\MicrobiomeBenchmark\\example_data.RDS")
-
 
 fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
 rownames(fpp) <- author.names
@@ -837,6 +835,7 @@ dat <- list(A_phyl,
 full.dat <- prepare_DA_data(dat,tax="Phylum")
 full.dat <- full.dat %>% dplyr::select(ID,status,author,N,everything()) ## Arrange data in new order
 
+
 library(DirichletMultinomial)
 
 tax.counts <- full.dat %>%
@@ -990,22 +989,61 @@ ggplot(data=full.dat,aes(x=author,y=Verrucomicrobia,fill=status)) +
 
 ## Stan - negative binomial
 ```{r}
-otu <- full.dat %>% dplyr::select(-c(1:4))
-meta <- full.dat %>% dplyr::select(c(1:4))
+
+
+stan.dat <- full.dat %>%
+            mutate(status = case_when(status=="HC"~0,
+                                      status=="PD"~1)) %>%
+            arrange(status)
+
+
+otu <- stan.dat %>% dplyr::select(-c(1:4))
+meta <- stan.dat %>% dplyr::select(c(1:4))
+
+colnames(otu)
 
 y <- full.dat %>% dplyr::select(Verrucomicrobia) %>% pull
 N <- length(y)
-x <- full.dat %>% dplyr::select(status) %>% mutate(status = case_when(status=="HC"~0,
-                                                                      status=="PD"~1)) %>% pull
+x <- stan.dat %>% dplyr::select(status) %>% pull
+
+groups <- list("starts" = c(min(which(x==0)),
+                          min(which(x==1))),
+               "ends" = c(max(which(x==0)),
+                          max(which(x==1))))
 
 library(rstan)
 
 sm <- stan_model("stan_model.stan")
 
-m <- sampling(sm, data = list(N = N, y = y, x = x),
-  pars = c("b0", "b1", "phi"),
+m <- sampling(sm, data = list("datamatrix" = otu+1,
+                              "nreps" = nrow(otu),
+                              "notus" = ncol(otu),
+                              "N"=2,
+                              "start"=groups$starts,
+                              "end" =groups$ends),
+  pars = c("pi"),
+  seed = 1406,
   iter = 500, chains = 4)
 
-rstan::traceplot(m, inc_warmup = FALSE,nrow=3)
+
+saveRDS(m,"stan_DM_phylum.RDS")
+shinystan::launch_shinystan(m)
+
+
+rstan::traceplot(m, inc_warmup = FALSE,nrow=4)
+est.pi <- extract(m,"pi")
+
+
+str(est.pi)
+plot(density(est.pi$pi[,1,1]))
+plot(density(est.pi$pi[,2,1]))
+
+est <- est.pi$pi[,1,] - est.pi$pi[,2,]
+
+
+
+cbind(t(apply(est,2,quantile)),
+"mean"=apply(est,2,mean))
+
 ```
 
