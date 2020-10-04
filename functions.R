@@ -155,6 +155,31 @@ estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
   
 }
 
+
+extrapolate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
+  
+  dat <- lapply(dat,function(x) aggregate_taxa(x,tax))
+  res <- lapply(dat,function(x) {data.frame("richness"=hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=0),
+                                            "shannon"=round(hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=1),0),
+                                            "inv.simpson"=round(hillR::hill_taxa(comm=otu_table(x),MARGIN=2,q=2)),0)})
+  met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(author) %>% rownames_to_column("ID"))
+  met1 <- reduce(met,full_join)
+  ls <- unlist(lapply(dat,function(x)  rowSums(t(otu_table(x))))) %>% data.frame("N"=.) %>% rownames_to_column("ID")
+  
+  res <- foreach::foreach(i=1:length(dat)) %do%  {res[[i]] %>% dplyr::mutate(ID=rownames(sample_data(dat[[i]])))}
+  
+  res <- foreach::foreach(i=1:length(dat)) %do% {dat[[i]] %>% phyloseq::sample_data() %>% plyr::mutate(ID=rownames(.)) %>% data.frame() %>% dplyr::select(ID,status) %>% left_join(res[[i]]) %>% plyr::mutate(study=i)}
+  
+  out <- res %>% reduce(full_join)
+  out <- out %>% left_join(ls,by="ID")
+  out <- out %>% left_join(met1,by="ID")
+  out <- out %>% mutate(author = fct_reorder(author,study))
+  return(out)
+  
+}
+
+
+
 #################################
 #### Data cleaning functions ####
 #################################

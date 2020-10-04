@@ -394,6 +394,9 @@ F_phyl <- prune_samples(sample_sums(F_phyl)>=10000, F_phyl) ## 1 sample filtered
 H_phyl <- prune_samples(sample_sums(H_phyl)>=10000, H_phyl)
 I_phyl <- prune_samples(sample_sums(I_phyl)>=10000, I_phyl) ## 47 samples filtered
 
+full_phyl <- merge_phyloseq(A_phyl,B_phyl,C_phyl,E_phyl,F_phyl,H_phyl,I_phyl)
+saveRDS(full_phyl,"full_phyl.RDS")
+
 ```
 
 
@@ -563,25 +566,6 @@ prevalence_by_abundance(I_phyl,thrs = 0)
 # Pooled analysis of alpha diversity
 
 
-## Alpha disversity analysis by rarefaction and interpolation of Hill Numbers
-```{r}
-A_next <- iNEXT::iNEXT(data.frame(t(A_dat[,-1])),q=0)
-p <- ggiNEXT(A_next,type = 1) +
-  theme(legend.position = "none")
-
-
-p.dat <- fortify(A_next,type=1)
-
-p.dat$method <- factor(p.dat$method, c("interpolated", "extrapolated"),c("interpolation", "extrapolation"))
-
-ggplot(aes(x=x,y=y,fill=site,col=site),data=p.dat) +
-  geom_line(aes(linetype=method),size=1,alpha=.4) +
-  theme(legend.position = "none")
-
-```
-
-
-
 ## Prepare alpha diversity measures
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 dat <- list(A_phyl,
@@ -695,8 +679,6 @@ alpha_dat %>% dplyr::select(status,N,study) %>%
 
 A common approach to handle unequal library sizes is by rarefaction, thus, sub-sampling from each sample to achieve equal library sizes that allow for fair comparisons However, this approach is highly criticized for several reasons, among which is the discarding of valuable data. Therefore, we will use a poisson model including the library size as an offset, conditioning the estimates on the library size. Using this approach, we will incorporate the uncertainty associated with the library size (cases will be weighted according to their library size), without throwing away any information.
 
-
-
 ## Random Effects models for alpha diversity
 
 ## Two-stage approach
@@ -752,6 +734,33 @@ forest(res,transf = exp,refline = 1,slab = unique(alpha_dat2$author))
 ```
 ## One-stage approach
 
+### Bayesian
+
+```{r}
+library(brms)
+
+fit <- brms::brm(richness~1+status+offset(log(N))+(1|study),
+                 data=alpha_dat,
+                 family =gaussian(),
+                 iter=500)
+
+fit1 <- brms::brm(richness~1+status+(1|study),
+                 data=alpha_dat,
+                 family =gaussian(),
+                 iter=500)
+
+summary(fit)
+summary(fit1)
+pp_check(fit1)
+
+library(tidybayes)
+
+study.draws <-  tidybayes::spread_draws(fit, study[study,], b_Intercept) %>% mutate(b_Intercept = r_Author + b_Intercept)
+
+```
+
+
+
 ```{r}
 ## One-stage approach
 
@@ -790,6 +799,46 @@ sensitivity_ls(alpha_dat2, index = "shannon")
 sensitivity_ls(alpha_dat2, index = "inv.simpson")
 ```
 
+
+# Extrapolation of alpha diversity
+
+```{r eval=FALSE, include=FALSE}
+A_next <- iNEXT::iNEXT(data.frame(t(A_dat[,-1])),q=0)
+p <- ggiNEXT(A_next,type = 1) +
+  theme(legend.position = "none")
+
+A_next$iNextEst$X1
+
+p.dat <- fortify(A_next,type=2)
+
+p.dat$method <- factor(p.dat$method, c("interpolated", "extrapolated"),c("interpolation", "extrapolation"))
+
+ggplot(aes(x=x,y=y,fill=site,col=site),data=p.dat) +
+  geom_line(aes(linetype=method),size=1,alpha=.4) +
+  theme(legend.position = "none") +
+  scale_x_continuous(labels=comma)
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+d <- lapply(dat,function(x) aggregate_taxa(x,"Sequence"))
+
+datA <- data.frame(otu_table(d[[1]]))
+str(datA)
+
+
+iAd <- iNEXT::iNEXT(datA,q=0,datatype="abundance")
+
+
+Ad <- iNEXT::estimateD(datA,datatype = "abundance",base="size",level=100000,conf=0.95)
+
+
+```
+
+
+
+
 # Beta diversity 
 
 ## Prepare full distance matrix
@@ -821,7 +870,7 @@ plot(betadisper(beta$dist,beta$meta$author))
 ```
 
 # Dirichlet multinomial mixture clustering
-```{r}
+```{r fig.height=8, fig.width=10}
 dat <- list(A_phyl,
             B_phyl,
             C_phyl,
@@ -829,10 +878,11 @@ dat <- list(A_phyl,
             F_phyl,
             H_phyl,
             I_phyl)
-
 ## Prepare data on Phylum level
 
 full.dat <- prepare_DA_data(dat,tax="Phylum")
+
+
 full.dat <- full.dat %>% dplyr::select(ID,status,author,N,everything()) ## Arrange data in new order
 
 
@@ -857,11 +907,13 @@ plot(lplc, type="b", xlab="Number of Dirichlet Components", ylab="Model Fit")
 
 best.fit <- dm.fit[[which.min(lplc)]]
 
+best.fit
+
 splom(fitted(best.fit))
 
 p0 <- fitted(dm.fit[[1]], scale=TRUE)# scale by theta>
 p8 <- fitted(best.fit, scale=TRUE)
-colnames(p8) <- paste("m", 1:8, sep="")
+colnames(p8) <- paste("m", 1:which.min(lplc), sep="")
 
 (meandiff <- colSums(abs(p8 - as.vector(p0))))
 sum(meandiff)
@@ -873,7 +925,23 @@ cdiff <- cumsum(diff[o]) / sum(diff)
 df <- head(cbind(Mean=p0[o], p8[o,], diff=diff[o], cdiff), 10)
 df %>% kable %>% kable_styling()
 
-heatmapdmn(tax.counts,fit1=dm.fit[[1]], fitN=best.fit, ntaxa=15)
+
+#heatmapdmn(tax.counts,fit1=dm.fit[[1]], fitN=best.fit, ntaxa=30)
+
+author <- full.dat $author
+out <- round(predict(best.fit,tax.counts,assign=TRUE))
+
+library(pheatmap)
+dmm.groups <- out %>% data.frame %>% transmute(group = case_when(X1==1 ~ 1,
+                                                X2==1 ~ 2,
+                                                X3==1 ~ 3,
+                                                X4==1 ~ 4,
+                                                X5==1 ~ 5,
+                                                X6==1 ~ 6,
+                                                X7==1 ~ 7))
+table(full.dat$author,unlist(dmm.groups))
+
+
 ```
 
 # Firmicuts / Bacteroidetes ratio
@@ -973,7 +1041,8 @@ clusterEvalQ(cl, library("permute"))
 perm.p <- parApply(cl=cl,otu,2,perm_DA,group=group,type="mean",n.perm=99999,strata=strata,plot=F)
 stop_for_problems(cl)
 
-data.frame("p.value"=perm.p,"FDR"=p.adjust(perm.p,method="fdr"))
+data.frame("p.value"=perm.p,"FDR"=p.adjust(perm.p,method="fdr")) %>% arrange(p.value)
+
 
 ```
 
@@ -987,10 +1056,8 @@ ggplot(data=full.dat,aes(x=author,y=Verrucomicrobia,fill=status)) +
 
 ```
 
-## Stan - negative binomial
-```{r}
-
-
+## Stan
+```{r eval=FALSE, include=FALSE}
 stan.dat <- full.dat %>%
             mutate(status = case_when(status=="HC"~0,
                                       status=="PD"~1)) %>%
@@ -1023,10 +1090,11 @@ m <- sampling(sm, data = list("datamatrix" = otu+1,
                               "end" =groups$ends),
   pars = c("pi"),
   seed = 1406,
-  iter = 500, chains = 4)
+  iter = 200, chains = 2)
 
 
 saveRDS(m,"stan_DM_phylum.RDS")
+m <- readRDS("stan_DM_phylum.RDS")
 shinystan::launch_shinystan(m)
 
 
@@ -1044,6 +1112,25 @@ est <- est.pi$pi[,1,] - est.pi$pi[,2,]
 
 cbind(t(apply(est,2,quantile)),
 "mean"=apply(est,2,mean))
+
+
+```
+
+
+
+## BRMS - negative binomial mixed model
+```{r echo=FALSE}
+library(brms)
+
+brms.fit <- brms::brm(Bacteroidetes ~ status+offset(log(N)) + (1|author) ,
+                      data = full.dat,
+                      chains=2,
+                      iter=500,
+                      family = negbinomial()
+                      )
+
+pp_check(brms.fit)
+
 
 ```
 

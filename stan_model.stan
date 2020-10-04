@@ -27,3 +27,11 @@ model {
     }
   }
 }
+
+generated quantities {
+  for(i in 1:N){
+    for(j in start[i]:end[i]){
+     real y_sim[j,i] = dirichlet_rng(pi[i]);
+    }
+  }
+}
