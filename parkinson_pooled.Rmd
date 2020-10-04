@@ -82,8 +82,8 @@ author.names <- c("Pietrucci et al., 2019",
            "Weis et al., 2019",
            "Barichella et al., 2019")
 
-#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -749,9 +749,26 @@ fit1 <- brms::brm(richness~1+status+(1|study),
                  family =gaussian(),
                  iter=500)
 
+fit2 <- brms::brm(richness~1+status+offset(log(N))+(1|study),
+                 data=alpha_dat,
+                 family = poisson(link = "log"),
+                 iter=500)
+
+fit3 <- brms::brm(richness~1+status+(1|study),
+                 data=alpha_dat,
+                 family = poisson(link = "log"),
+                 iter=500)
+
+fit4 <- brms::brm(richness~1+status+offset(log(N))+(1+status|study),
+                 data=alpha_dat,
+                 family = poisson(link = "log"),
+                 iter=500)
+
 summary(fit)
 summary(fit1)
-pp_check(fit1)
+summary(fit4)
+pp_check(fit4)
+
 
 library(tidybayes)
 
@@ -1129,8 +1146,38 @@ brms.fit <- brms::brm(Bacteroidetes ~ status+offset(log(N)) + (1|author) ,
                       family = negbinomial()
                       )
 
-pp_check(brms.fit)
+
+bacs <- colnames(full.dat)[5:18]
+as.formula(paste0(outcome,"~status+offset(log(N))"))
+
+brms_univ <- function(x) {
+  fit <- brms::brm(as.formula(paste0(x,"~ status+offset(log(N)) + (1|author)")) ,
+                      data = full.dat,
+                      chains=2,
+                      iter=500,
+                      family = zero_inflated_negbinomial(link = "log", link_shape = "log", link_zi = "logit")
+                      )
+} 
 
 
+fits <- sapply(bacs,brms_univ,simplify = F)
+
+lapply(fits,pp_check)
+
+
+bacs[[8]]
+fits[[3]]
+pp_check(fits[[13]])
+p <- lapply(fits,pp_check)
+
+pp_check(fits[[1]]) +
+  pp_check(fits[[2]]) +
+  pp_check(fits[[3]]) +
+  pp_check(fits[[4]]) +
+  pp_check(fits[[5]]) +
+  pp_check(fits[[6]])
+  
+
+full.dat$Elusimicrobia
 ```
 
