@@ -2,7 +2,8 @@
 packages <- c("ggplot2","tidyverse","drake",'rjson','knitr','kableExtra',
               'readr','hablar','foreach','phyloseq','vegan','lme4','microbiome',
               'merTools',"sjPlot",'lmerTest','reshape2','sjmisc','sjmisc',
-              'texreg','ape','microbiome','rmdformats','seqinr','hillR','metafor',"NBZIMM")
+              'texreg','ape','microbiome','rmdformats','seqinr','hillR','metafor',"NBZIMM",
+              "ComplexHeatmap","ggsci")
 
 #### Install packages ####
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {

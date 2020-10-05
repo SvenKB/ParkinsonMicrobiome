@@ -338,6 +338,48 @@ prevalence_by_abundance <- function(phyl,thrs=0.05) {
 }
 
 
+#### Inspect sparsity
+
+sparsityHeatmap <- function(phyl,level) {
+  
+  
+  id <- rownames(data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))))  
+  d <- data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))) %>%
+    mutate(N= rowSums(.))
+  rownames(d) <- id
+  
+  
+  # Prepare zero-inflation indicator matrix
+  d.mat <- d
+  d.mat[d.mat>0] <- 1
+  d.mat <- d.mat %>% dplyr::select(-N)
+  d.mat <- d.mat[order(rowSums(d.mat),decreasing = T),order(colSums(d.mat),decreasing = T)]
+  rownames(d.mat) <- id[order(rowSums(d.mat),decreasing = T)]
+  
+  # Prepare sequencing depth vector
+  N <- d[order(rowSums(d.mat),decreasing = F),"N"]
+  
+  rowDat <- data.frame(N=N)
+  
+  rowAnn <- HeatmapAnnotation(Depth = anno_barplot(as.matrix(rowDat$N), border = F,axis_param = list(direction = "reverse"),width = unit(4, "cm")),
+                              which = "row")
+  
+  
+  ComplexHeatmap::Heatmap(as.matrix(d.mat),
+                          col = circlize::colorRamp2(breaks = c(0,1),colors = c("#000000","#D60C00FF"),space="sRGB"),
+                          cluster_columns = F,
+                          cluster_rows = F, 
+                          show_column_names = F,
+                          show_row_names = F,
+                          left_annotation = rowAnn,
+                          heatmap_legend_param = list(
+                            title = "Observed", at = c(0,1), 
+                            labels = c("0","1")),
+                          row_names_gp = gpar(fontsize = 3))
+  
+}
+
+
 
 ############################ 
 #### Analysis functions ####

@@ -3,7 +3,7 @@ title: "Parkinson Meta-Analysis"
 author: "Sven Kleine Bardenhorst"
 date: "8 4 2020"
 output:
-  rmdformats::material:
+  rmdformats::html_clean:
     highlight: kate
     thumbnails: true
     code_folding: show
@@ -82,8 +82,8 @@ author.names <- c("Pietrucci et al., 2019",
            "Weis et al., 2019",
            "Barichella et al., 2019")
 
-project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -738,41 +738,94 @@ forest(res,transf = exp,refline = 1,slab = unique(alpha_dat2$author))
 
 ```{r}
 library(brms)
-
-fit <- brms::brm(richness~1+status+offset(log(N))+(1|study),
-                 data=alpha_dat,
-                 family =gaussian(),
-                 iter=500)
-
-fit1 <- brms::brm(richness~1+status+(1|study),
-                 data=alpha_dat,
-                 family =gaussian(),
-                 iter=500)
-
-fit2 <- brms::brm(richness~1+status+offset(log(N))+(1|study),
-                 data=alpha_dat,
-                 family = poisson(link = "log"),
-                 iter=500)
-
-fit3 <- brms::brm(richness~1+status+(1|study),
-                 data=alpha_dat,
-                 family = poisson(link = "log"),
-                 iter=500)
-
-fit4 <- brms::brm(richness~1+status+offset(log(N))+(1+status|study),
-                 data=alpha_dat,
-                 family = poisson(link = "log"),
-                 iter=500)
-
-summary(fit)
-summary(fit1)
-summary(fit4)
-pp_check(fit4)
-
-
 library(tidybayes)
+library(ggridges)
+library(glue)
 
-study.draws <-  tidybayes::spread_draws(fit, study[study,], b_Intercept) %>% mutate(b_Intercept = r_Author + b_Intercept)
+
+#fit <- brms::brm(richness~1+status+offset(log(N))+(1|study),
+#                 data=alpha_dat,
+#                 family =gaussian(),
+#                 iter=500)
+
+#fit1 <- brms::brm(richness~1+status+(1|study),
+#                 data=alpha_dat,
+#                 family =gaussian(),
+#                 iter=500)
+
+#fit2 <- brms::brm(richness~1+status+offset(log(N))+(1|study),
+#                 data=alpha_dat,
+#                 family = poisson(link = "log"),
+#                 iter=500)
+
+fit3 <- brms::brm(shannon~1+status+offset(log(N))+(1+status|study),
+                 data=alpha_dat,
+                 family = poisson(),
+                 iter=1000)
+
+fit4 <- brms::brm(shannon~1+status+(1+status|study),
+                 data=alpha_dat,
+                 family = gaussian(),
+                 iter=1000)
+
+
+#summary(fit2)
+summary(fit3)
+#summary(fit4)
+
+#pp_check(fit2)
+
+pp_check(fit3,nsamples = 50)
+pp_check(fit4,nsamples = 50)
+
+plot(fit3)
+plot(fit4)
+
+# Study effects
+#posterior <- posterior_samples(fit4)
+
+study.draws <- fit3 %>% spread_draws(b_Intercept,
+                                     b_statusPD,
+                                     r_study[study,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_study + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
+  mutate(study = case_when(study==1 ~ author.names[[1]],
+                           study==2 ~ author.names[[2]],
+                           study==3 ~ author.names[[3]],
+                           study==4 ~ author.names[[4]],
+                           study==5 ~ author.names[[5]],
+                           study==6 ~ author.names[[6]],
+                           study==7 ~ author.names[[7]]))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit3,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         study = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(study = reorder(study,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, study) %>% 
+  mean_qi(b_statusPD)
+
+ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit3)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit3)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
+                      alpha = 0.6) +
+  geom_pointintervalh(data = forest.data.summary, size = 1) +
+  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
+    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_minimal()
+
 
 ```
 
@@ -1136,7 +1189,7 @@ cbind(t(apply(est,2,quantile)),
 
 
 ## BRMS - negative binomial mixed model
-```{r echo=FALSE}
+```{r eval=FALSE, include=FALSE}
 library(brms)
 
 brms.fit <- brms::brm(Bacteroidetes ~ status+offset(log(N)) + (1|author) ,

@@ -1,0 +1,682 @@
+---
+title: "Quality checks and data preperation"
+author: "Sven Kleine Bardenhorst"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mail: "s.kleinebardenhorst@uni-muenster.de"
+linkedin: "yan-holtz-2477534a"
+twitter: "r_graph_gallery"
+github: "svenkb"
+home: "epi.uni-muenster.de"
+# !!! You need to provide a logo image here !!! Or just delete the field for no logo
+logo: "Logo_WWU.svg"
+output:
+  epuRate::epurate:
+    toc: TRUE
+    number_sections: FALSE
+    code_folding: "hide"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.height=5, fig.width=10)
+```
+
+
+```{r load packages, message=FALSE, warning=FALSE, include=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+```
+
+# Preparation of data based on same sequence region (V4)
+
+### Load data
+```{r Load data, message=FALSE, warning=FALSE}
+# Load ASV data
+A_data <- readr::read_delim("Data/A_data.txt",delim="\t")
+B_data <- readr::read_delim("Data/B_data.txt",delim="\t")
+C_data <- readr::read_delim("Data/C_data.txt",delim="\t")
+E_data <- readr::read_delim("Data/E_data.txt",delim="\t")
+F_data <- readr::read_delim("Data/F_data.txt",delim="\t")
+H_data <- readr::read_delim("Data/H_data.txt",delim="\t")
+I_data <- readr::read_delim("Data/I_data.txt",delim="\t")
+J_data <- readr::read_delim("Data/J_data.txt",delim="\t")
+```
+
+
+### Transform into tidy format
+```{r}
+# transpose into tidy format
+A_dat <- tidy_up(A_data,trim=F)
+B_dat <- tidy_up(B_data,trim=T)
+C_dat <- tidy_up(C_data)
+E_dat <- tidy_up(E_data,trim=T)
+F_dat <- tidy_up(F_data)
+H_dat <- tidy_up(H_data)
+I_dat <- tidy_up(I_data)  #%>% mutate(ID = str_replace_all(ID,"-","."))
+J_dat <- tidy_up(J_data)
+```
+
+
+### Prepare taxonomy based on V4-region trimmed sequences sequences
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+studies <- list("A_Dysbiosisofgutmicrobiota",
+             "B_Alterationofthefecalmicrobiota_2",
+             "C_ColonicbacterialcompositioninParkinson",
+             "E_Gutmicrobiotain",
+             "F_ThenasalandgutmicrobiomeinParkinsonsdisease",
+             "H_EffectofParkinsonsdisease",
+             "I_UnravellingGutMicrobiotas")
+
+author.names <- c("Pietrucci et al., 2019",
+           "Qian et al., 2018",
+           "Keshavarzian et al., 2015",
+           "Aho et al., 2019",
+           "Heintz-Buschart et al., 2018",
+           "Weis et al., 2019",
+           "Barichella et al., 2019")
+
+#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+
+
+
+path <- paste0(project_path,"Data\\")
+seq_same <- paste("Sequences_sameregion\\")
+tax_same <- paste("Classified_sameregion\\Classified_Unaligned_Sliced_F_Sequences_") 
+
+taxa <- lapply(studies,function(x) read_tsv(paste0(path,tax_same,x,"_noC.txt.align.fasta"),quote="",col_names = F))
+seq <- lapply(studies, function(x) ((seqinr::read.fasta(paste0(path,seq_same,"Unaligned_Sliced_F_Sequences_",x,"_noC.txt.align.fasta"),as.string = T,set.attributes = F))))
+
+seq <- foreach(i=seq_along(seq)) %do% data.frame("ID"=paste0("ASV",names(unlist(seq[[i]]))),"Sequence"=unlist(seq[[i]]))
+
+
+taxon <- lapply(taxa,prepare_taxonomy_sameregion)
+
+A_tax <- taxon[[1]] %>% left_join(seq[[1]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+B_tax <- taxon[[2]] %>% left_join(seq[[2]])  %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+C_tax <- taxon[[3]] %>% left_join(seq[[3]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+E_tax <- taxon[[4]] %>% left_join(seq[[4]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+F_tax <- taxon[[5]] %>% left_join(seq[[5]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+H_tax <- taxon[[6]] %>% left_join(seq[[6]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+I_tax <- taxon[[7]] %>% left_join(seq[[7]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+
+
+```
+
+### Quality filtering
+
+```{r}
+A_clean <- clean(A_dat,A_tax,filter="rel")
+B_clean <- clean(B_dat,B_tax,filter="rel")
+C_clean <- clean(C_dat,C_tax,filter="rel")
+E_clean <- clean(E_dat,E_tax,filter="rel")
+F_clean <- clean(F_dat,F_tax,filter="rel")
+H_clean <- clean(H_dat,H_tax,filter="rel")
+I_clean <- clean(I_dat,I_tax,filter="rel")
+
+
+#ind <- I_tax[I_tax$Phylum=="Bacteroidetes","ID"] %>% pull
+
+#apply(I_dat[,ind],1,sum)
+
+#I_clean[,names(I_clean) %in% ind]
+```
+
+
+### Prepare metadata
+```{r message=FALSE, warning=FALSE}
+# Load ENA metadata
+A_Meta_ENA <- loadENAMeta(path="Data/A_meta_ENA.txt") %>% dplyr::select(run_accession,library_name)
+B_Meta_ENA <- loadENAMeta(path="Data/B_meta_ENA.txt")
+#C_Meta <- loadENAMeta(path="Data/C_meta.txt")
+#D_Meta <- loadENAMeta(path="Data/D_meta.txt")
+E_Meta_ENA <- loadENAMeta(path="Data/E_meta_ENA.txt") %>% 
+  dplyr::select(run_accession,sample_title) %>%
+  slice(1:266) %>% # Slice blank controls
+  mutate(Timepoint = str_split(.$sample_title," ",simplify = TRUE)[,2],
+         Subject = str_split(.$sample_title," ",simplify = TRUE)[,1]) %>%
+  dplyr::select(-sample_title)
+
+F_Meta_ENA <- loadENAMeta(path="Data/F_meta_ENA.txt") %>% dplyr::select(run_accession, library_name,experiment_alias)
+G_Meta_ENA <- loadENAMeta(path="Data/G_meta_ENA.txt")
+H_Meta_ENA <- loadENAMeta(path="Data/H_meta_ENA.txt") %>%
+  dplyr::select(run_accession,sample_alias) %>%
+  slice(1:256) %>% # Slice ion torrent
+  mutate(ID = run_accession,
+    Sample = str_split(.$sample_alias,"_",simplify = T)[,1]) %>%
+  dplyr::select(ID,Sample)
+
+
+#I_Meta <- loadENAMeta(path="Data/I_meta.txt")
+J_Meta_ENA <- loadENAMeta(path="Data/J_meta_ENA.txt")
+
+# Load detailed metadata
+project_path
+
+C_meta1 <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/C_meta.xlsx"),sheetIndex = 1, header = T,startRow =2)
+names <- str_remove(colnames(C_meta1),"PD.")
+colnames(C_meta1) <- names
+
+C_meta2 <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/C_meta.xlsx"),sheetIndex = 2, header = T,startRow =2)
+names <- str_remove(colnames(C_meta2),"HC.")
+colnames(C_meta2) <- names
+
+C_Meta <- C_meta1 %>% full_join(C_meta2) %>% filter(Feces %in% toupper(C_dat$ID) | Tissue %in% toupper(C_dat$ID))
+
+E_meta <- readr::read_csv(paste0(project_path,"Data/Meta/E_meta.csv")) %>% 
+  left_join(E_Meta_ENA) %>% dplyr::select(run_accession,everything())
+
+H_meta <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/H_meta.xlsx"),
+                          sheetIndex = 1, header = T,startRow =1) # Other drugs variable not used and deleted for easier import
+
+
+I_meta <- xlsx::read.xlsx(paste0(project_path,"Data/Meta/I_meta.xls"), sheetIndex = 1,header=T,startRow = 2) %>% slice(1:306)
+
+J_meta <- readr::read_csv(paste0(project_path,"Data/Meta/J_meta.csv")) %>%
+  dplyr::select(cc,ID,Age,Sex,Batch,CC,Onset,'UPDRS-I','UPDRS-III',Stool_freq,Constipation,Vegetarian,Nicotine,Alcohol,Caffeine,Ferm_Milk,Age_DBS,L_Dopa,Benserazid,Carbidopa,Dopa_Agon,COMT_Inhibitor,MAO_B_Inh,CV_disease)
+```
+
+### Prepare phyloseq objects
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Combine Taxonomies, Metadata and ASV-Data into phyloseq objects
+
+# Study A
+## OTU
+OTU_A <- as.matrix(A_clean[,-1])
+rownames(OTU_A) <- A_dat$ID
+OTU_A <- otu_table(t(OTU_A),taxa_are_rows = T)
+
+## Tax
+tax_A <- as.matrix(A_tax[,-1])
+rownames(tax_A) <- A_tax$ID
+
+tax_A <- tax_table(tax_A)
+
+## Meta
+A_sample <- A_Meta_ENA %>%
+            mutate(pd = substr(.$library_name,1,3),
+                   author = "Pietrucci et al., 2019") %>%
+            mutate(status = ifelse(pd=="CON","HC","PD")) %>%
+            column_to_rownames(var="run_accession") %>% sample_data()
+
+## Combine
+A_phyl <- phyloseq(OTU_A,tax_A,A_sample)
+
+
+# Study B
+
+## OTU
+OTU_B <- as.matrix(B_clean[,-1])
+rownames(OTU_B) <- B_dat$ID
+OTU_B <- otu_table(t(OTU_B),taxa_are_rows = T)
+
+## Tax
+tax_B <- as.matrix(B_tax[,-1])
+rownames(tax_B) <- B_tax$ID
+tax_B <- tax_table(tax_B)
+
+## Meta
+B_sample <- B_Meta_ENA %>%
+  dplyr::select(run_accession,library_name) %>%
+  mutate(status = case_when(startsWith(library_name,"GC") ~ "HC",
+                            startsWith(library_name,"GP") ~ "PD"),
+         author = "Qian et al., 2018") %>%
+  filter(not.na(status)) %>% # Filter out blood metagenome
+  column_to_rownames(var="run_accession") %>%
+  sample_data()
+
+## Combine
+B_phyl <- phyloseq(OTU_B,tax_B,B_sample)
+
+
+# Study C
+## OTU
+OTU_C <- as.matrix(C_clean[,-1])
+rownames(OTU_C) <- toupper(C_dat$ID)
+OTU_C <- otu_table(t(OTU_C),taxa_are_rows = T)
+
+## Tax
+tax_C <- as.matrix(C_tax[,-1])
+rownames(tax_C) <- toupper(C_tax$ID)
+
+tax_C <- tax_table(tax_C)
+
+## Meta
+C_sample <- C_Meta %>%
+  dplyr::select(Case.IDs,Tissue,Feces,everything()) %>%
+  tidyr::gather(Sample,ID,2:3) %>%
+  dplyr::select(Case.IDs,Sample,ID,everything()) %>%
+  filter(ID != 'NA') %>%
+  filter(Sample=="Feces") %>%
+  mutate(status = ifelse(startsWith(Cases,"Parkinson"),"PD","HC"),
+         author = "Keshavarzian et al., 2015") %>%
+  dplyr::select(status,everything()) %>%
+  column_to_rownames(var='ID') %>%
+  sample_data
+
+## Combine
+C_phyl <- phyloseq(OTU_C,tax_C,C_sample)
+
+
+# Study E
+## OTU
+OTU_E <- as.matrix(E_clean[,-1])
+rownames(OTU_E) <- E_dat$ID
+OTU_E <- otu_table(t(OTU_E),taxa_are_rows = T)
+
+## Tax
+tax_E <- as.matrix(E_tax[,-1])
+rownames(tax_E) <- E_tax$ID
+
+tax_E <- tax_table(tax_E)
+
+## Meta
+E_sample <- E_meta %>%
+            filter(Timepoint == "followup") %>%
+            mutate(status = ifelse(Parkinson=="control","HC","PD"),
+                   author = "Aho et al., 2019") %>%
+            dplyr::select(status,everything()) %>%
+            column_to_rownames(var='run_accession') %>%
+            sample_data()
+
+## Combine
+E_phyl <- phyloseq(OTU_E,tax_E,E_sample)
+
+
+# Study F
+## OTU
+OTU_F <- as.matrix(F_clean[,-1])
+rownames(OTU_F) <- F_dat$ID
+OTU_F <- otu_table(t(OTU_F),taxa_are_rows = T)
+
+## Tax
+tax_F <- as.matrix(F_tax[,-1])
+rownames(tax_F) <- F_tax$ID
+
+tax_F <- tax_table(tax_F)
+
+## Meta
+F_sample <- F_Meta_ENA %>%
+  filter(endsWith(library_name,".f")) %>%
+  filter(startsWith(library_name,"PD")|startsWith(library_name,"HC")) %>%
+  mutate(status = ifelse(startsWith(library_name,"PD"),"PD","HC"),
+         author = "Heintz-Buschart et al., 2018") %>%
+  column_to_rownames(var="run_accession") %>% sample_data
+
+
+## Combine
+F_phyl <- phyloseq(OTU_F,tax_F,F_sample)
+
+
+# Study H
+## OTU
+OTU_H <- H_clean %>%
+  left_join(H_Meta_ENA) %>%
+  group_by(Sample) %>%
+  summarize_if(is.numeric,funs(sum)) %>%
+  arrange(desc(Sample))
+
+id <- substr(OTU_H$Sample,4,8)
+id[40:length(id)] <- paste0("P",id[40:length(id)])
+
+OTU_H$Sample[1:39] <-  paste0('IfM ',substr(id[1:39],1,1),"0",substr(id[1:39],2,4))
+OTU_H$Sample[40:nrow(OTU_H)] <- paste0('IfM ',substr(id[40:length(id)],1,2),"0",substr(id[40:length(id)],3,5))
+
+OTU_H <- OTU_H %>% column_to_rownames(var="Sample") %>% as.matrix %>% t %>% otu_table(taxa_are_rows = T)
+## Tax
+tax_H <- as.matrix(H_tax[,-1])
+rownames(tax_H) <- H_tax$ID
+tax_H <- tax_table(tax_H)
+
+## Meta
+H_sample <- H_meta %>%
+            mutate(status = ifelse(Group =="PD","PD","HC"),
+                   author = "Weis et al., 2019") %>%
+            dplyr::select(status,everything(),-Group) %>%
+            column_to_rownames(var="SampleID") %>%
+            sample_data
+
+## Combine
+H_phyl <- phyloseq(OTU_H,tax_H,H_sample)
+
+
+# Study I
+
+## OTU
+OTU_I <- as.matrix(I_clean[,-1])
+rownames(OTU_I) <- str_replace_all(I_dat$ID,"-",".")
+OTU_I <- otu_table(t(OTU_I),taxa_are_rows = T)
+
+## Tax
+tax_I <- as.matrix(I_tax[,-1])
+rownames(tax_I) <- I_tax$ID
+
+tax_I <- tax_table(tax_I)
+
+## Meta
+I_sample <- I_meta %>%
+  mutate(status = ifelse(status==0,"HC","PD"),
+         author = "Barichella et al., 2019")  %>%
+            column_to_rownames(var="ID") %>%
+            sample_data
+
+
+## Combine
+I_phyl <- phyloseq(OTU_I,tax_I,I_sample)
+
+
+A_phyl
+B_phyl
+C_phyl
+E_phyl
+F_phyl
+H_phyl
+I_phyl
+
+```
+
+## Filter samples with library size below 10000 reads
+```{r}
+A_phyl <- prune_samples(sample_sums(A_phyl)>=10000, A_phyl)
+B_phyl <- prune_samples(sample_sums(B_phyl)>=10000, B_phyl) ## 19 Samples filtered
+C_phyl <- prune_samples(sample_sums(C_phyl)>=10000, C_phyl) ## 2 samples filtered
+E_phyl <- prune_samples(sample_sums(E_phyl)>=10000, E_phyl) ## 2 Samples filtered
+F_phyl <- prune_samples(sample_sums(F_phyl)>=10000, F_phyl) ## 1 sample filtered
+H_phyl <- prune_samples(sample_sums(H_phyl)>=10000, H_phyl)
+I_phyl <- prune_samples(sample_sums(I_phyl)>=10000, I_phyl) ## 47 samples filtered
+
+
+
+```
+
+
+
+
+# Data inspection
+
+## Number of taxa per phylum
+```{r}
+dat <- list(A_phyl,
+            B_phyl,
+            C_phyl,
+            E_phyl,
+            F_phyl,
+            H_phyl,
+            I_phyl)
+#saveRDS(dat,"phyl_list.RDS")
+
+fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
+rownames(fpp) <- author.names
+fpp
+```
+
+
+## Prevelance and abundance of taxa per phylum
+We can have a look at the prevalence of the phyla to see whether a phylum is dominated by a single taxon or by many different taxa. Prevelance here means, whether a specific taxon is present in a subject. As example, the total prevalence of Acidobateria in **Pietrucci et al., 2019** means, that - in total - the 4 taxa (as identified in table above) of the phylum Acidobacteria appeared 55 times. On average, each taxon appeared 13.75 times, indicating that the prevalence of the taxa are relatively equally distributed within the phylum Acidobacteria.
+The tables should always be interpreted in combination with the table above (and the figures for abundance information).
+
+
+### Pietrucci et al., 2019
+```{r, fig.cap = "Pietrucci et al., 2019"}
+prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
+prevalence_by_abundance(A_phyl,thrs = 0)
+```
+* Deinococcus-Thermus
+  + only one taxon
+  + appears in only one subject
+* Spirochaetes
+  + only one taxon
+  + appears in only one subject
+* Elusimicrobia !?
+  + only 5 taxa
+  + appears in only 2.5% of cases on average
+  + abundance between 300-1000
+
+### Qian et al., 2018
+```{r, fig.cap = "Qian et al., 2018"}
+prevalence_per_phylum(B_phyl) %>% kable(caption=paste0(author.names[[2]])) %>% kable_styling()
+prevalence_by_abundance(B_phyl,thrs = 0)
+```
+
+* candidate division WPS-2 
+  + only one taxon
+  + appears in one subject
+  + low abundance < 150
+* Deferribacteres
+  + low prevalence
+  + appear in two subjects
+  + low abundance < 150
+* Deinococcus-Thermus
+  + low prevalence
+  + one subject
+  + low abundance < 300
+* Planctomycetes
+  + one taxon
+  + one subject
+  + low abundance < 150
+* Tenericutes
+  + one taxon
+  + one subject
+  + but, HIGH abundance > 16000
+
+
+### Keshavarzian et al., 2015
+```{r, fig.cap = "Keshavarzian et al., 2015"}
+prevalence_per_phylum(C_phyl) %>% kable(caption=paste0(author.names[[3]])) %>% kable_styling()
+prevalence_by_abundance(C_phyl,thrs = 0)
+```
+
+* Planctomycetes
+* Spirochaetes
+* Tenericutes
+  + low prevalence
+  + one subject on average
+  + abundance ~ 1300
+* Fusobacteria
+  + low prevalence
+  + one subject on average
+  + suber low abundance < 25
+
+### Aho et al., 2019
+```{r, fig.cap = "Aho et al., 2019"}
+prevalence_per_phylum(E_phyl) %>% kable(caption=paste0(author.names[[4]])) %>% kable_styling()
+prevalence_by_abundance(E_phyl,thrs = 0)
+```
+
+* Deferribacteres
+  + one taxon
+  + six subjects
+  + low abundance ~ 200
+* Elusimicrobia
+  + one taxon
+  + one subject
+  + abundance ~ 500
+* Fusobacteria
+  + 3 taxa
+  + low prevalence < 1
+  + extreme range in abundance - 300 < abundance < 10000
+
+### Heintz-Buschart et al., 2018
+```{r, fig.cap = "Heintz-Buschart et al., 2018"}
+prevalence_per_phylum(F_phyl) %>% kable(caption=paste0(author.names[[5]])) %>% kable_styling()
+prevalence_by_abundance(F_phyl,thrs = 0)
+```
+* Armatimonadetes
+* candidate division WPS-1
+* candidate division WPS-2
+* Chloroflexi
+* Chrysiogenetes
+* Deferribacteres
+* Deinococcus-Thermus
+* Gemmatimonadetes
+* Hydrogenedentes
+* Ignavibacteriae
+* Planctomycetes
+* Spirochaetes
+* Elusimicrobia
+  + one taxon
+  + three subjects
+  + abundance ~ 2000
+
+### Weis et al., 2019
+```{r, fig.cap = "Weis et al., 2019"}
+prevalence_per_phylum(H_phyl) %>% kable(caption=paste0(author.names[[6]])) %>% kable_styling()
+prevalence_by_abundance(H_phyl,thrs = 0)
+```
+
+* Chloroflexi
+  + one taxon
+  + one subject
+  + low abundance < 200
+* Tenericutes
+  + three taxa
+  + two subjects
+  + low abundance < 350
+
+
+
+### Barichella et al., 2019
+```{r, fig.cap = "Barichella et al., 2019"}
+prevalence_per_phylum(I_phyl) %>% kable(caption=paste0(author.names[[7]])) %>% kable_styling()
+prevalence_by_abundance(I_phyl,thrs = 0)
+```
+* Deferribacteres
+  + one taxon
+  + three subjects
+  + low abundance < 400
+* Elusimicrobia
+  + one taxon
+  + two subjects
+  + abundance ~ 1600
+* Tenericutes
+  + one taxon
+  + one subject
+  + abundance ~ 4000
+  
+  
+## Sparsity
+```{r fig.height=10}
+sparsityHeatmap(dat[[1]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[2]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[3]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[4]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[5]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[6]],level="Genus")
+```
+
+```{r fig.height=10}
+sparsityHeatmap(dat[[7]],level="Genus")
+```
+
+
+## Heatmaps
+
+```{r fig.height=15}
+data <- prepare_DA_data(dat,tax="Genus")
+
+d <- data %>% dplyr::select(-c(1:3))
+d <- d %>% dplyr::select(-N)
+
+rownames(d) <- paste0("Row_",rownames(d))
+author <- data %>% dplyr::select(author)
+
+author <- author %>% transmute(Study = as.factor(author))
+
+rownames(author) <- paste0("Row_",rownames(author))
+
+quantile_breaks <- function(xs, n = 100) {
+  breaks <- quantile(xs[xs>0], probs = seq(0, 1, length.out = n))
+  breaks[!duplicated(breaks)]
+}
+
+mat_breaks <- quantile_breaks(as.matrix(log10(d)), n = 100)
+#mat_breaks <- seq(min(d+1), max(d), length.out = 10)
+
+
+
+mypal <- pal_d3("category10")(7)
+
+ann_colors <- list(Study = c("Pietrucci et al., 2019" ="#1F77B4FF",
+                              "Qian et al., 2018" = "#FF7F0EFF",
+                   "Keshavarzian et al., 2015" = "#2CA02CFF",
+                   "Aho et al., 2019" = "#D62728FF",
+                   "Heintz-Buschart et al., 2018" ="#9467BDFF",
+                   "Weis et al., 2019" ="#8C564BFF",
+                   "Barichella et al., 2019" = "#E377C2FF"))
+
+#### ComplexHeatmap
+tax_list <- lapply(dat,function(x) as.data.frame(tax_table(x)))
+
+tax <- reduce(tax_list,full_join)
+get_phylum <- function(x) {unique(tax[tax$Genus == gsub("\\.", " ", x),"Phylum"])}
+
+genera <- colnames(d)
+
+phyla <- sapply(genera,get_phylum)
+phyla$Escherichia.Shigella <- "Proteobacteria"
+phylum <- as.vector(unlist(phyla))
+rowPhyla <- data.frame(Phylum=phylum)
+ann_colors_row <- list(Phylum = c("Bacteroidetes"="#4E79A7",
+                                  "Actinobacteria"="#A0CBE8",
+                                  "Firmicutes"="#F28E2B",
+                                  "Acidobacteria"="#59A14F",
+                                  "Proteobacteria" ="#E15759",
+                                  "Verrucomicrobia"="#79706E",
+                                  "Fusobacteria"="#499894",
+                                  "Elusimicrobia"="#B6992D",
+                                  "Lentisphaerae"="#BAB0AC",
+                                  "Candidatus Saccharibacteria"="#F1CE63",
+                                  "Synergistetes"="#B07AA1",
+                                  "Tenericutes"="#9D7660",
+                                  "Chloroflexi"="#D37295",
+                                  "Deinococcus-Thermus"="#8CD17D"))
+
+colAnn <- HeatmapAnnotation(df = author,
+                            which="col",
+                            col = ann_colors,
+                            show_annotation_name = F,
+                            annotation_legend_param = list(ncol=3,title_position = "leftcenter"))
+
+rowAnn <- HeatmapAnnotation(df = rowPhyla,
+                            which = "row",
+                            col = ann_colors_row,
+                            show_annotation_name = F,
+                            annotation_legend_param = list(ncol=5,title_position = "leftcenter"))
+
+pcomp <- ComplexHeatmap::Heatmap(t(log10(d+1)),
+                        col = circlize::colorRamp2(breaks = mat_breaks,colors = c("#000000",viridis::inferno(99,direction = 1)),space="sRGB"),
+                        cluster_columns = F,
+                        top_annotation = colAnn,
+                        right_annotation = rowAnn,
+                        show_column_names = F,
+                        row_names_gp = gpar(fontsize = 3),
+                        heatmap_legend_param = list(title = "Abundance [Log10]",
+                                                    title_position = "leftcenter",
+                                                    direction = "horizontal"))
+
+draw(pcomp,annotation_legend_side="top",heatmap_legend_side="top")
+
+#ggsave("genus_heatmap_complex_inferno_phyl_ann.pdf",draw(pcomp,annotation_legend_side="top",heatmap_legend_side="top"),width = 8, height = 11)
+
+```
+
