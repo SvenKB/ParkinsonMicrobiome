@@ -357,7 +357,7 @@ sparsityHeatmap <- function(phyl,level) {
   rownames(d.mat) <- id[order(rowSums(d.mat),decreasing = T)]
   
   # Prepare sequencing depth vector
-  N <- d[order(rowSums(d.mat),decreasing = F),"N"]
+  N <- d[order(rowSums(d.mat),decreasing = T),"N"]
   
   rowDat <- data.frame(N=N)
   
@@ -366,7 +366,7 @@ sparsityHeatmap <- function(phyl,level) {
   
   
   ComplexHeatmap::Heatmap(as.matrix(d.mat),
-                          col = circlize::colorRamp2(breaks = c(0,1),colors = c("#000000","#D60C00FF"),space="sRGB"),
+                          col = circlize::colorRamp2(breaks = c(0,1),colors = c("#D60C00FF","#00468BFF"),space="sRGB"),
                           cluster_columns = F,
                           cluster_rows = F, 
                           show_column_names = F,
@@ -374,7 +374,8 @@ sparsityHeatmap <- function(phyl,level) {
                           left_annotation = rowAnn,
                           heatmap_legend_param = list(
                             title = "Observed", at = c(0,1), 
-                            labels = c("0","1")),
+                            labels = c("No","Yes")),
+                          rect_gp = gpar(col = "black", lwd = .002),
                           row_names_gp = gpar(fontsize = 3))
   
 }

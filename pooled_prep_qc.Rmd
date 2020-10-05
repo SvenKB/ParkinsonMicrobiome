@@ -18,7 +18,13 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.height=5, fig.width=10)
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.width = 12)
+```
+
+```{css}
+body .main-container {
+max-width: 1600px;
+}
 ```
 
 
@@ -78,8 +84,8 @@ author.names <- c("Pietrucci et al., 2019",
            "Weis et al., 2019",
            "Barichella et al., 2019")
 
-#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -560,31 +566,31 @@ prevalence_by_abundance(I_phyl,thrs = 0)
   
   
 ## Sparsity
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[1]]}
 sparsityHeatmap(dat[[1]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[2]]}
 sparsityHeatmap(dat[[2]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[3]]}
 sparsityHeatmap(dat[[3]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[4]]}
 sparsityHeatmap(dat[[4]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[5]]}
 sparsityHeatmap(dat[[5]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[6]]}
 sparsityHeatmap(dat[[6]],level="Genus")
 ```
 
-```{r fig.height=10}
+```{r fig.height=10, fig.cap=author.names[[7]]}
 sparsityHeatmap(dat[[7]],level="Genus")
 ```
 
