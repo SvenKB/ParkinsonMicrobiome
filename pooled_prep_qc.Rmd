@@ -590,6 +590,10 @@ sparsityHeatmap(dat[[1]],level="Genus")
 
 ```{r fig.height=10, fig.cap=author.names[[2]]}
 sparsityHeatmap(dat[[2]],level="Genus")
+# SRR5748429 strange at Genus level
+# SRR5748396 strange at Family level
+# SRR5748483 only two ASVs
+inspect_b <- c("SRR5748429","SRR5748396","SRR5748483")
 ```
 
 ```{r fig.height=10, fig.cap=author.names[[3]]}
@@ -701,6 +705,22 @@ pcomp <- ComplexHeatmap::Heatmap(t(log10(d+1)),
 draw(pcomp,annotation_legend_side="top",heatmap_legend_side="top")
 
 #ggsave("genus_heatmap_complex_inferno_phyl_ann.pdf",draw(pcomp,annotation_legend_side="top",heatmap_legend_side="top"),width = 8, height = 11)
+
+```
+
+## Insepect conspicuous observations
+
+```{r}
+dat[[2]] %>%
+  aggregate_taxa("Family") %>%
+  otu_table() %>%
+  t %>%
+  as.data.frame() %>%
+  rownames_to_column("ID") %>%
+  dplyr::select(ID,everything()) %>%
+  filter(ID %in% inspect_b) %>%
+  mutate_if(is.numeric, function(x) ifelse(x > 0,1,0) ) %>%
+  summarize_if(is.numeric,sum)
 
 ```
 

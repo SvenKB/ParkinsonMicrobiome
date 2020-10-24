@@ -104,12 +104,14 @@ prepare_DA_data <- function(data,tax="Genus",meta=c("status","author")) {
  }
 
  
-prepare_beta_data <- function(dat,meta=c("status","author"),tax="Genus",method="bray") {
+prepare_beta_data <- function(dat,meta=c("status","author"),tax="Genus",method="bray",filter_id = c()) {
    
    ## Combine data to a single dataset
    d <- lapply(dat, function(x) as.data.frame(t(otu_table(aggregate_taxa(x,tax)))) %>% rownames_to_column("ID"))
    full_d <- reduce(d,full_join)
    full_d[is.na(full_d)] <- 0 # Set NA OTU counts to 0, these are taxa which where not detected in other datasets
+   full_d <- full_d %>% filter(ID %notin% filter_id) # Filter IDs
+   
    
    full_ID <- full_d[,1] # extraxct patient IDs
    rownames(full_d) <- full_ID # set rownames to patient IDs
@@ -117,9 +119,8 @@ prepare_beta_data <- function(dat,meta=c("status","author"),tax="Genus",method="
    filt <- apply(d,1,sum) != 0
    d <- d[filt,] # Filter observations without any OTU count
    
-   
    ## Extract metadata
-   met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(meta) %>% rownames_to_column("ID"))
+   met <- lapply(dat,function(x) sample_data(x) %>% data.frame() %>% dplyr::select(meta) %>% rownames_to_column("ID") %>% filter(ID %notin% filter_id))
    met1 <- reduce(met,full_join) %>% filter(filt)
    
    ## Calculate distance matrix
@@ -342,7 +343,6 @@ prevalence_by_abundance <- function(phyl,thrs=0.05) {
 
 sparsityHeatmap <- function(phyl,level) {
   
-  
   id <- rownames(data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))))  
   d <- data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))) %>%
     mutate(N= rowSums(.))
@@ -356,6 +356,10 @@ sparsityHeatmap <- function(phyl,level) {
   d.mat <- d.mat[order(rowSums(d.mat),decreasing = T),order(colSums(d.mat),decreasing = T)]
   rownames(d.mat) <- id[order(rowSums(d.mat),decreasing = T)]
   
+  
+  rownames(d)
+  rownames(d.mat)
+  rownames(rowDat)
   # Prepare sequencing depth vector
   N <- d[order(rowSums(d.mat),decreasing = T),"N"]
   
@@ -370,13 +374,13 @@ sparsityHeatmap <- function(phyl,level) {
                           cluster_columns = F,
                           cluster_rows = F, 
                           show_column_names = F,
-                          show_row_names = F,
+                          show_row_names = T,
                           left_annotation = rowAnn,
                           heatmap_legend_param = list(
                             title = "Observed", at = c(0,1), 
                             labels = c("No","Yes")),
                           rect_gp = gpar(col = "black", lwd = .002),
-                          row_names_gp = gpar(fontsize = 3))
+                          row_names_gp = gpar(fontsize = 6))
   
 }
 
