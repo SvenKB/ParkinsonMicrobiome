@@ -124,15 +124,19 @@ prepare_beta_data <- function(dat,meta=c("status","author"),tax="Genus",method="
    met1 <- reduce(met,full_join) %>% filter(filt)
    
    ## Calculate distance matrix
-   dist <- vegdist(d,method=method)
-   
+   if(method=="aitchison") {
+     clr_d <- compositions::clr(d+1)
+     dist <- vegdist(d,method="euclidean")
+   } else {
+      dist <- vegdist(d,method=method)
+   }
    
    out <- list("dist"=dist,
                "meta"=met1,
                "data"=d)
    return(out)
    
- }
+}
  
 estimate_alpha <- function(dat,tax="Sequence",meta=c("author")) {
   

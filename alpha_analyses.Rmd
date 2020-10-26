@@ -262,13 +262,45 @@ fit3 <- readRDS("poisson_fit_shannon.RDS")
 #saveRDS(fit4,"gaussian_fit_shannon.RDS")
 fit4 <- readRDS("gaussian_fit_shannon.RDS")
 
+alpha_dat <- alpha_dat %>% mutate(scaledN = N/min(N))
 
+
+alpha_dat <- alpha_dat %>% mutate(status = case_when(status=="HC"~0,
+                                                     status=="PD"~1))
+
+fit5 <- brms::brm(status|weights(log2(N))~1+(shannon/N)+(1+status|study),
+                 data=alpha_dat,
+                 family = binomial(link = "logit"),
+                 iter=300,chains = 2)
+
+fit6 <- brms::brm((shannon/N)|weights(log2(N))~1+status+(1+status|study),
+                 data=alpha_dat,
+                 family = lognormal(link = "identity", link_sigma = "log"),
+                 iter=300,chains = 2)
+
+fit7 <- brms::brm((shannon/N)|weights(scaledN)~1+status+(1+status|study),
+                 data=alpha_dat,
+                 family = lognormal(link = "identity", link_sigma = "log"),
+                 iter=300,chains = 2)
+
+fit8 <- brms::brm(shannon~1+status+offset(log(N))+(1+status|study),
+                 data=alpha_dat,
+                 family = negbinomial(link = "log", link_shape = "log"),
+                 iter=1000)
+
+fit9 <- brms::brm(shannon|weights(log2(N))~1+status+(1+status|study),
+                 data=alpha_dat,
+                 family = gaussian(),
+                 iter=300)
+
+pp_check(fit7)
+pp_check(fit9)
 ```
 
 ```{r}
 pp_check(fit3,nsamples = 50)
 pp_check(fit4,nsamples = 50)
-
+pp_check(fit5,nsamples = 50)
 ```
 
 ```{r}
@@ -326,6 +358,119 @@ ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)),
        y = element_blank()) +
   theme_minimal()
 ```
+
+```{r}
+# Study effects
+#posterior <- posterior_samples(fit4)
+
+study.draws <- fit6 %>% spread_draws(b_Intercept,
+                                     b_statusPD,
+                                     r_study[study,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_study + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
+  mutate(study = case_when(study==1 ~ author.names[[1]],
+                           study==2 ~ author.names[[2]],
+                           study==3 ~ author.names[[3]],
+                           study==4 ~ author.names[[4]],
+                           study==5 ~ author.names[[5]],
+                           study==6 ~ author.names[[6]],
+                           study==7 ~ author.names[[7]]))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit6,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         study = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(study = reorder(study,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, study) %>% 
+  mean_qi(b_statusPD)
+
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+cols = gg_color_hue(length(levels(forest.data$study)))
+
+
+ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit6)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit6)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
+                      alpha = 0.6) +
+  geom_pointintervalh(data = forest.data.summary, size = 1) +
+  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
+    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_minimal()
+```
+```{r}
+# Study effects
+#posterior <- posterior_samples(fit4)
+
+study.draws <- fit9 %>% spread_draws(b_Intercept,
+                                     b_statusPD,
+                                     r_study[study,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_study + b_statusPD) %>%
+  mutate(b_statusPD = (b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
+  mutate(study = case_when(study==1 ~ author.names[[1]],
+                           study==2 ~ author.names[[2]],
+                           study==3 ~ author.names[[3]],
+                           study==4 ~ author.names[[4]],
+                           study==5 ~ author.names[[5]],
+                           study==6 ~ author.names[[6]],
+                           study==7 ~ author.names[[7]]))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit9,b_statusPD) %>%
+  mutate(b_statusPD = (b_statusPD),
+         study = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(study = reorder(study,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, study) %>% 
+  mean_qi(b_statusPD)
+
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+cols = gg_color_hue(length(levels(forest.data$study)))
+
+
+ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = (fixef(fit9)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = (fixef(fit9)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
+                      alpha = 0.6) +
+  geom_pointintervalh(data = forest.data.summary, size = 1) +
+  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
+    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_minimal()
+```
+
+
 
 ```{r}
 ## One-stage approach
