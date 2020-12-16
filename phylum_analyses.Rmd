@@ -1,0 +1,263 @@
+---
+title: "Phylum level analyses"
+author: "Sven Kleine Bardenhorst"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mail: "s.kleinebardenhorst@uni-muenster.de"
+twitter: "r_graph_gallery"
+github: "svenkb"
+home: "epi.uni-muenster.de"
+# !!! You need to provide a logo image here !!! Or just delete the field for no logo
+logo: "Logo_WWU.svg"
+output:
+  epuRate::epurate:
+    toc: TRUE
+    number_sections: FALSE
+    code_folding: "hide"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.width = 12)
+```
+
+```{css include=FALSE}
+body .main-container {
+max-width: 1600px;
+}
+```
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{r load packages, message=FALSE, warning=FALSE, include=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+
+#### Level
+level <- "Phylum"
+```
+
+# Beta diversity 
+
+## Prepare full distance matrix
+
+```{r echo=FALSE, message=FALSE}
+dat <- readRDS("phyl_list.RDS")
+
+beta <- prepare_beta_data(dat,tax=level,method = "bray")
+```
+
+```{r}
+cmdscale(beta$dist,k=2) %>%
+  as.data.frame() %>%
+  rownames_to_column("ID") %>%
+  dplyr::left_join(beta$meta) %>%
+  ggplot(aes(x=V1,y=V2,col=author,shape=status)) +
+  geom_point()
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+beta_NMDS <- metaMDS(as.matrix(beta$dist,labels = T),distance = "bray",
+                     k=2,
+                     maxit = 999)
+```
+
+```{r}
+stressplot(beta_NMDS)
+```
+
+
+```{r}
+fit <- adonis(beta$dist~status,data = beta$meta,strata = beta$meta$author,permutations = 9999)
+summary(fit)
+```
+
+```{r}
+fit1 <- betadisper(beta$dist,as.factor(beta$meta$author))
+
+disper_d <- data.frame(distance=fit1$distances,group=fit1$group)
+
+ggplot(data=disper_d,aes(x=group,y=distance,fill=group)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle=90),
+        axis.title.x = element_text("Study"))
+
+
+```
+
+# Differential abundance
+
+## Differential abundance by permutation
+
+We implemented a non-parametric test based on permutations, as it is - compared to negative binomial models - robust against violations of assumptions of parametric models. We adopted the test statistic as provided by Thorsen et al. as follows
+
+$$
+\begin{equation}
+T = log(\frac{\bar{\theta}_{PD}}{\bar{\theta}_{HC}})
+\end{equation}
+$$
+
+where $\bar{\theta}$ is the mean relative abundance in the respective study group.
+
+```{r}
+full.dat <- prepare_DA_data(dat,tax=level)
+full.dat <- full.dat %>% dplyr::select(ID,status,author,N,everything())
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+otu <- full.dat %>% dplyr::select(-c(1:3)) %>% mutate_all(function(x) x/.$N) %>% dplyr::select(-N)
+meta <- full.dat %>% dplyr::select(c(1:4))
+
+group <- meta$status
+strata <- meta$author
+
+cores <- detectCores()-1
+cl <- makeCluster(cores)
+clusterEvalQ(cl, library("permute"))
+
+perm.out <- parApply(cl=cl,otu,2,perm_DA,group=group,type="mean",n.perm=9999,strata=strata,plot=F)
+
+stopCluster(cl)
+
+perm.p <- data.frame(names=names(perm.out),matrix(unlist(perm.out),nrow=length(perm.out),byrow=T))
+colnames(perm.p) <- c("Phyla","p.value","log.mean.diff")
+
+
+perm.p$q.value <- p.adjust(perm.p$p.value,method = "fdr")
+perm.p <- perm.p %>% mutate(mean.ratio = round(exp(log.mean.diff),2)) %>% arrange(q.value)
+
+#perm.p %>% filter(Genera == "Prevotella")
+
+#full.dat %>%
+#  group_by(author,status) %>%
+#  summarize(abundance=sum(Marvinbryantia),
+#            prevalence=sum(Marvinbryantia >1))
+
+
+#orig <- c("Bifidobacterium","Bacteroides","Lactobacillus","Blautia","Coprococcus",
+#              "Dorea","Roseburia","Faecalibacterium","Oscillospira","Akkermansia",
+#              "Acinetobacter","Alistipes","Anaerotruncus","Aquabacterium","Butyricicoccus",
+#              "Citrobacter","Clostridium.IV","Clostridium.XlVa","Clostridium.XlVb","Clostridium.XVIII",
+#              "Desulfovibrio","Enterococcus","Fusicatenibacter","Gordonibacter","Holdemania",
+#              "Klebsiella","Lachnospiracea_incertae_sedis","Lactococcus","Parabacteroides","Paraprevotella",
+#              "Peptoniphilus","Prevotella","Ruminococcus","Salmonella","Sediminibacterium","Shigella",
+#              "Sphingomonas")
+```
+
+
+
+The table below lists the Phyla which are significant after FDR-correction  and - for comparison - the Phyla which were reported in the original publications.
+
+```{r}
+reported <- readxl::read_xlsx(".//reported_results.xlsx") %>%
+  filter(!is.na(phylum) & is.na(class) & is.na(order) &  is.na(family) & is.na(genus)) %>%
+  mutate(Phyla = phylum) %>%
+  dplyr::select(Phyla,reported,increased,decreased)
+
+
+perm.res <- perm.p %>%
+  left_join(reported,by = "Phyla") %>%
+  replace(is.na(.),0) %>%
+  filter(p.value < 0.05| reported > 0) %>%
+  arrange(desc(reported))
+
+
+perm.res %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+# Negative binomial mixed models
+
+```{r message=FALSE, warning=FALSE}
+taxa <- names(full.dat)[-c(1:4)] # Extract all taxa names
+
+
+cores <- detectCores()-1
+cl <- makeCluster(cores)
+clusterEvalQ(cl, library("NBZIMM"))
+
+univ.fit <- parSapply(cl=cl,taxa,fitZINBMM,full.dat,simplify = F)
+
+stopCluster(cl)
+comp.error <- taxa[sapply(univ.fit,is.null)]
+
+#fit.sig <- univ.fit[unlist(lapply(univ.fit[!sapply(univ.fit,is.null)],is.sig))]
+
+negbin.res <- round(t(sapply(univ.fit[!sapply(univ.fit,is.null)],summarize_univariate)),5) %>%
+  data.frame() %>%
+  rownames_to_column("Phyla") %>%
+  mutate(q.value = p.adjust(p.value,method="fdr")) %>%
+  dplyr::select(Phyla,estimate,p.value,q.value) %>%
+  filter(p.value < 0.05) %>%
+  left_join(reported,by = "Phyla") %>%
+  replace(is.na(.),0) %>%
+  filter(p.value < 0.05 | reported > 0) %>%
+  arrange(desc(reported),estimate)
+
+negbin.res %>% kable() %>%  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+# Summarized results
+
+The following table shows all results which were significant using both methods, as well as all previously reported results.
+```{r echo=FALSE, fig.height=10}
+all.res <- perm.res %>%
+  full_join(negbin.res,by="Phyla",suffix = c(".perm", ".nb")) %>%
+  dplyr::select(Phyla,mean.ratio,q.value.perm,estimate,q.value.nb,reported.perm,increased.perm,decreased.perm) %>%
+  dplyr::rename(reported = reported.perm,
+                increased = increased.perm,
+                decreased = decreased.perm,
+                estimate.nb = estimate) %>%
+  filter(q.value.perm < 0.05 & q.value.nb < 0.05 | reported > 0) %>% arrange(desc(reported))
+
+all.res %>% kable %>%  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+```{r fig.height=50}
+scientific_10 <- function(x) {
+  parse(text=gsub("e", " %*% 10^", scales::scientific_format()(x)))
+}
+
+
+sig <- all.res$Phyla
+
+meta %>% bind_cols(otu) %>% dplyr::select(status,author,all_of(sig)) %>% melt %>% mutate(points=ifelse(value==0,NA,value)) %>%#  group_by(author,status,variable) %>% summarize_all(mean) %>%
+  ggplot(aes(x=author,y=value,fill=status),data=.) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(aes(fill = status,y=points), size = 1, shape = 21, position = position_jitterdodge()) +
+  #geom_bar(stat="identity",position="dodge") +
+  theme(axis.text.x = element_text(angle=90)) +
+  xlab("Relative abundance") +
+  scale_y_continuous(label=scientific_10) +
+  facet_wrap(~variable,ncol=1,scales = "free") 
+
+```

@@ -102,8 +102,8 @@ author.names <- c("Pietrucci et al., 2019",
            "Weis et al., 2019",
            "Barichella et al., 2019")
 
-#project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
-project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
+project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
+#project_path <- c("C:\\Users\\kleinebardenhorst\\Documents\\Projects\\ParkinsonMicrobiome\\ParkinsonMicrobiome\\")
 
 
 
@@ -588,12 +588,12 @@ prevalence_by_abundance(I_phyl,thrs = 0)
 sparsityHeatmap(dat[[1]],level="Genus")
 ```
 
+
 ```{r fig.height=10, fig.cap=author.names[[2]]}
 sparsityHeatmap(dat[[2]],level="Genus")
-# SRR5748429 strange at Genus level
-# SRR5748396 strange at Family level
-# SRR5748483 only two ASVs
-inspect_b <- c("SRR5748429","SRR5748396","SRR5748483")
+# SRR5748467 strange at Genus level
+# SRR5748395 only two ASVs
+inspect_b <- c("SRR5748467","SRR5748395")
 ```
 
 ```{r fig.height=10, fig.cap=author.names[[3]]}
@@ -710,17 +710,51 @@ draw(pcomp,annotation_legend_side="top",heatmap_legend_side="top")
 
 ## Insepect conspicuous observations
 
+ID **SRR5748467** by **Qian et al.** showed strange patterns, with many genera abundant which are not present in any other sample. Maybe we need to filter this observation?
+
 ```{r}
 dat[[2]] %>%
-  aggregate_taxa("Family") %>%
+  aggregate_taxa("Genus") %>%
   otu_table() %>%
   t %>%
   as.data.frame() %>%
   rownames_to_column("ID") %>%
   dplyr::select(ID,everything()) %>%
-  filter(ID %in% inspect_b) %>%
-  mutate_if(is.numeric, function(x) ifelse(x > 0,1,0) ) %>%
-  summarize_if(is.numeric,sum)
+  mutate(compare = ifelse(ID=="SRR5748467","SRR5748467","All")) %>%
+  group_by(compare) %>%
+  summarise_if(is.numeric,sum) %>%
+  ungroup %>%
+  tidyr::gather(key = key, value = value, 2:ncol(.)) %>%
+  spread(key = compare, value = "value") %>%
+  filter(All == 0) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
+dat[[2]] %>%
+  aggregate_taxa("Genus") %>%
+  otu_table() %>%
+  t %>%
+  as.data.frame() %>%
+  rownames_to_column("ID") %>%
+  dplyr::select(ID,everything()) %>%
+  mutate(compare = ifelse(ID=="SRR5748395","SRR5748395","All")) %>%
+  group_by(compare) %>%
+  summarise_if(is.numeric,sum) %>%
+  ungroup %>%
+  tidyr::gather(key = key, value = value, 2:ncol(.)) %>%
+  spread(key = compare, value = "value") %>%
+  filter(SRR5748395 >0) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
+```{r}
+ids <- rownames(sample_data(dat[[2]]))
+dat[[2]] <- prune_samples(ids[ids %notin% inspect_b],dat[[2]])
+```
+
+
+```{r}
+saveRDS(dat,"phyl_list.RDS")
+```
+
 

@@ -26,6 +26,8 @@ max-width: 1600px;
 }
 ```
 
+
+
 ```{css zoom-lib-src, echo = FALSE}
 script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
 ```
@@ -51,6 +53,9 @@ source('packages.R')
 
 #### load functions ####
 source("functions.R")
+
+#### Level
+level <- "Genus"
 ```
 
 # Beta diversity 
@@ -60,7 +65,7 @@ source("functions.R")
 ```{r echo=FALSE, message=FALSE}
 dat <- readRDS("phyl_list.RDS")
 
-beta <- prepare_beta_data(dat,tax="Phylum",method = "bray")
+beta <- prepare_beta_data(dat,tax=level,method = "bray")
 ```
 
 ```{r}
@@ -71,70 +76,187 @@ cmdscale(beta$dist,k=2) %>%
   ggplot(aes(x=V1,y=V2,col=author,shape=status)) +
   geom_point()
 
+```
 
 
 
+```{r message=FALSE, warning=FALSE, include=FALSE}
 beta_NMDS <- metaMDS(as.matrix(beta$dist,labels = T),distance = "bray",
                      k=2,
                      maxit = 999)
+```
 
-
+```{r}
 stressplot(beta_NMDS)
-plot(beta_NMDS)
 ```
 
-+
-```{r}
-fit <- adonis(beta$dist~status,data = beta$meta,strata = beta$meta$author,permutations = 1000)
 
+```{r}
+fit <- adonis(beta$dist~status,data = beta$meta,strata = beta$meta$author,permutations = 9999)
+summary(fit)
 ```
 
 ```{r}
-boxplot(betadisper(beta$dist,as.factor(beta$meta$author)))
+fit1 <- betadisper(beta$dist,as.factor(beta$meta$author))
+
+disper_d <- data.frame(distance=fit1$distances,group=fit1$group)
+
+ggplot(data=disper_d,aes(x=group,y=distance,fill=group)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle=90),
+        axis.title.x = element_text("Study"))
+
 
 ```
 
-## Differential abundance
+# Differential abundance
+
+## Differential abundance by permutation
+
+We implemented a non-parametric test based on permutations, as it is - compared to negative binomial models - robust against violations of assumptions of parametric models. We adopted the test statistic as provided by Thorsen et al. as follows
+
+$$
+\begin{equation}
+T = log(\frac{\bar{\theta}_{PD}}{\bar{\theta}_{HC}})
+\end{equation}
+$$
+
+where $\bar{\theta}$ is the mean relative abundance in the respective study group.
+
 ```{r}
-full.dat <- prepare_DA_data(dat,tax="Family")
+full.dat <- prepare_DA_data(dat,tax=level)
 full.dat <- full.dat %>% dplyr::select(ID,status,author,N,everything())
 ```
 
 
-
-## Permutation based differential abundance
-```{r}
-otu <- full.dat %>% dplyr::select(-c(1:4))
+```{r message=FALSE, warning=FALSE, include=FALSE}
+otu <- full.dat %>% dplyr::select(-c(1:3)) %>% mutate_all(function(x) x/.$N) %>% dplyr::select(-N)
 meta <- full.dat %>% dplyr::select(c(1:4))
 
 group <- meta$status
 strata <- meta$author
-weights <- meta$N
 
 
-cores <- detectCores()-2
+
+cores <- detectCores()-1
 cl <- makeCluster(cores)
 clusterEvalQ(cl, library("permute"))
 
-perm.p <- parApply(cl=cl,otu,2,perm_DA,group=group,type="mean",n.perm=9999,strata=strata,plot=F)
+perm.out <- parApply(cl=cl,otu,2,perm_DA,group=group,type="mean",n.perm=9999,strata=strata,plot=F)
 
 stopCluster(cl)
 
-perm.p <- data.frame(names=names(perm.p),matrix(unlist(perm.p),nrow=length(perm.p),byrow=T))
+perm.p <- data.frame(names=names(perm.out),matrix(unlist(perm.out),nrow=length(perm.out),byrow=T))
 colnames(perm.p) <- c("Genera","p.value","log.mean.diff")
 
 
-perm.p$q.value <- p.adjust(perm.p$p.value,method = "fdr")\
-perm.p <- perm.p %>% mutate(mean.ratio = exp(log.mean.diff)) %>% arrange(q.value)
+perm.p$q.value <- p.adjust(perm.p$p.value,method = "fdr")
+perm.p <- perm.p %>% mutate(mean.ratio = round(exp(log.mean.diff),2)) %>% arrange(q.value)
 
-perm.p[perm.p$Genera == "Ruminococcaceae",]
+#perm.p %>% filter(Genera == "Prevotella")
+
+#full.dat %>%
+#  group_by(author,status) %>%
+#  summarize(abundance=sum(Marvinbryantia),
+#            prevalence=sum(Marvinbryantia >1))
+
+
+#orig <- c("Bifidobacterium","Bacteroides","Lactobacillus","Blautia","Coprococcus",
+#              "Dorea","Roseburia","Faecalibacterium","Oscillospira","Akkermansia",
+#              "Acinetobacter","Alistipes","Anaerotruncus","Aquabacterium","Butyricicoccus",
+#              "Citrobacter","Clostridium.IV","Clostridium.XlVa","Clostridium.XlVb","Clostridium.XVIII",
+#              "Desulfovibrio","Enterococcus","Fusicatenibacter","Gordonibacter","Holdemania",
+#              "Klebsiella","Lachnospiracea_incertae_sedis","Lactococcus","Parabacteroides","Paraprevotella",
+#              "Peptoniphilus","Prevotella","Ruminococcus","Salmonella","Sediminibacterium","Shigella",
+#              "Sphingomonas")
+```
 
 
 
-full.dat %>%
-  #dplyr::select(author,status,Parvimonas) %>%
-  group_by(author,status) %>%
-  summarize(sum(Ruminococcaceae))
+The table below lists the genera which are significant after FDR-correction  and - for comparison - the genera which were reported in the original publications.
+
+```{r}
+reported <- readxl::read_xlsx(".//reported_results.xlsx") %>% filter(!is.na(genus)) %>% mutate(Genera = genus) %>% dplyr::select(Genera,reported,increased,decreased) 
+
+
+perm.res <- perm.p %>%
+  left_join(reported,by = "Genera") %>%
+  replace(is.na(.),0) %>%
+  filter(p.value < 0.05| reported > 0)
+
+
+perm.res %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+
+```
+
+# Negative binomial mixed models
+
+```{r message=FALSE, warning=FALSE}
+taxa <- names(full.dat)[-c(1:4)] # Extract all taxa names
+
+
+cores <- detectCores()-1
+cl <- makeCluster(cores)
+clusterEvalQ(cl, library("NBZIMM"))
+
+univ.fit <- parSapply(cl=cl,taxa,fitZINBMM,full.dat,simplify = F)
+
+stopCluster(cl)
+comp.error <- taxa[sapply(univ.fit,is.null)]
+
+#fit.sig <- univ.fit[unlist(lapply(univ.fit[!sapply(univ.fit,is.null)],is.sig))]
+
+negbin.res <- round(t(sapply(univ.fit[!sapply(univ.fit,is.null)],summarize_univariate)),5) %>%
+  data.frame() %>%
+  rownames_to_column("Genera") %>%
+  mutate(q.value = p.adjust(p.value,method="fdr")) %>%
+  dplyr::select(Genera,estimate,p.value,q.value) %>%
+  filter(p.value < 0.05) %>%
+  left_join(reported,by = "Genera") %>%
+  replace(is.na(.),0) %>%
+  filter(p.value < 0.05 | reported > 0) %>%
+  arrange(desc(reported),estimate)
+
+negbin.res %>% kable() %>%  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+# Summarized results
+
+The following table shows all results which were significant using both methods, as well as all previously reported results.
+```{r echo=FALSE, fig.height=10}
+all.res <- perm.res %>%
+  full_join(negbin.res,by="Genera",suffix = c(".perm", ".nb")) %>%
+  dplyr::select(Genera,mean.ratio,q.value.perm,estimate,q.value.nb,reported.perm,increased.perm,decreased.perm) %>%
+  dplyr::rename(reported = reported.perm,
+                increased = increased.perm,
+                decreased = decreased.perm,
+                estimate.nb = estimate) %>%
+  filter(q.value.perm < 0.05 & q.value.nb < 0.05 | reported > 0) %>% arrange(desc(reported))
+
+all.res %>% kable %>%  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+```{r fig.height=300}
+scientific_10 <- function(x) {
+  parse(text=gsub("e", " %*% 10^", scales::scientific_format()(x)))
+}
+
+
+sig <- all.res$Genera
+
+meta %>% bind_cols(otu) %>% dplyr::select(status,author,all_of(sig)) %>% melt %>% mutate(points=ifelse(value==0,NA,value)) %>%#  group_by(author,status,variable) %>% summarize_all(mean) %>%
+  ggplot(aes(x=author,y=value,fill=status),data=.) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_point(aes(fill = status,y=points), size = 1, shape = 21, position = position_jitterdodge()) +
+  #geom_bar(stat="identity",position="dodge") +
+  theme(axis.text.x = element_text(angle=90)) +
+  xlab("Relative abundance") +
+  scale_y_continuous(label=scientific_10) +
+  facet_wrap(~variable,ncol=1,scales = "free") 
 
 ```
 

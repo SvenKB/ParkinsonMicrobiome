@@ -103,23 +103,19 @@ Given a specific value of $H'$, we cannot derive the true diversity of the commu
 
 Suppose we have two communities with `r length(x)` equally abundant taxa. We can calculate the Shannon-Index for this community with
 
-$$
-H' = - \sum_i p_i * ln  p_i
-$$
+$H' = - \sum_i p_i * ln  p_i$
 
 
 with $p_i = \frac{n_i}{N}$. For the given example, $H'$ is `r s_x`. Now, we know the $H'$ of a community with `r length(x)` equally abundant taxa. Therefore, we can conclude that every community with an $H'$ of `r s_x` is always as diverse as a community with `r length(x)` equally abundant taxa.
 
 We can make use of this fact, by transforming the $H'$ into the **effective number of species**, which is simply done by exponantation of $H'$.
 
-$$
-\exp(H') = exp(3.912023) = 50
-$$
+$\exp(H') = exp(3.912023) = 50$
+
 The same logic can be applied to other measures of diversity. In fact, the effective number of species based on the most commonly used diversity indices can be calculated directly by the generalized formula
 
-$$
-qD = (\sum_{i_=1}^Sp_i^q)^{1/(1-q)},
-$$
+$qD = (\sum_{i_=1}^Sp_i^q)^{1/(1-q)},$
+
 which is the Hill number of order q. The expression if fully dependent on the choice of q, the exponent of taxa abundances, thus, determining the weight that is assigned to the evenness of taxa. The higher the value of q, the higher the influence of eveness on the value of the index.
 
 Different values of q correspond to the most frequently used diversity measures. Here, we will focus on $q=0$ (species richness), $q=1$ (exponential of the Shannon index; note that it is not exactly 1, as the formula is not defined for $q=1$, but its limit when q tends to 1) and $q=2$ (the inverse of Simpson's concentration index).
@@ -225,7 +221,7 @@ forest(res,transf = exp,refline = 1,slab = unique(alpha_dat2$author))
 ```
 ## One-stage approach
 
-### Bayesian multilevel models
+### Bayesian mixed effect models
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(brms)
@@ -234,74 +230,146 @@ library(ggridges)
 library(glue)
 
 
-#fit <- brms::brm(richness~1+status+offset(log(N))+(1|study),
+#fit1 <- brms::brm(richness~1+status+log(N)+(1+status|study),
 #                 data=alpha_dat,
-#                 family =gaussian(),
+#                 family =poisson(),
+#                 iter=500)
+#
+#fit2 <- brms::brm(shannon~1+status+log(N)+(1+status|study),
+#                 data=alpha_dat,
+#                 family =poisson(),
+#                 iter=500)
+#
+#
+#fit3 <- brms::brm(inv.simpson~1+status+log(N)+(1+status|study),
+#                 data=alpha_dat,
+#                 family =poisson(),
 #                 iter=500)
 
-#fit1 <- brms::brm(richness~1+status+(1|study),
-#                 data=alpha_dat,
-#                 family =gaussian(),
-#                 iter=500)
+#saveRDS(fit1,"richness_fit.RDS")
+#saveRDS(fit2,"shannon_fit.RDS")
+#saveRDS(fit3,"simpson_fit.RDS")
 
-#fit2 <- brms::brm(shannon~1+status+offset(log(N))+(1|study),
-#                 data=alpha_dat,
-#                 family = poisson(),
-#                 iter=500)
+fit1 <- readRDS("richness_fit.RDS")
+fit2 <- readRDS("shannon_fit.RDS")
+fit3 <- readRDS("simpson_fit.RDS")
 
-#fit3 <- brms::brm(shannon~1+status+offset(log(N))+(1+status|study),
-#                 data=alpha_dat,
-#                 family = poisson(),
-#                 iter=1000)
-#saveRDS(fit3,"poisson_fit_shannon.RDS")
-fit3 <- readRDS("poisson_fit_shannon.RDS")
-#fit4 <- brms::brm(shannon~1+status+(1+status|study),
-#                 data=alpha_dat,
-#                 family = gaussian(),
-#                 iter=1000)
-#saveRDS(fit4,"gaussian_fit_shannon.RDS")
-fit4 <- readRDS("gaussian_fit_shannon.RDS")
-
-alpha_dat <- alpha_dat %>% mutate(scaledN = N/min(N))
-
-
-alpha_dat <- alpha_dat %>% mutate(status = case_when(status=="HC"~0,
-                                                     status=="PD"~1))
-
-fit5 <- brms::brm(status|weights(log2(N))~1+(shannon/N)+(1+status|study),
-                 data=alpha_dat,
-                 family = binomial(link = "logit"),
-                 iter=300,chains = 2)
-
-fit6 <- brms::brm((shannon/N)|weights(log2(N))~1+status+(1+status|study),
-                 data=alpha_dat,
-                 family = lognormal(link = "identity", link_sigma = "log"),
-                 iter=300,chains = 2)
-
-fit7 <- brms::brm((shannon/N)|weights(scaledN)~1+status+(1+status|study),
-                 data=alpha_dat,
-                 family = lognormal(link = "identity", link_sigma = "log"),
-                 iter=300,chains = 2)
-
-fit8 <- brms::brm(shannon~1+status+offset(log(N))+(1+status|study),
-                 data=alpha_dat,
-                 family = negbinomial(link = "log", link_shape = "log"),
-                 iter=1000)
-
-fit9 <- brms::brm(shannon|weights(log2(N))~1+status+(1+status|study),
-                 data=alpha_dat,
-                 family = gaussian(),
-                 iter=300)
-
-pp_check(fit7)
-pp_check(fit9)
 ```
 
 ```{r}
-pp_check(fit3,nsamples = 50)
-pp_check(fit4,nsamples = 50)
-pp_check(fit5,nsamples = 50)
+# Study effects
+#posterior <- posterior_samples(fit4)
+
+study.draws <- fit1 %>% spread_draws(b_Intercept,
+                                     b_statusPD,
+                                     r_study[study,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_study + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
+  mutate(study = case_when(study==1 ~ author.names[[1]],
+                           study==2 ~ author.names[[2]],
+                           study==3 ~ author.names[[3]],
+                           study==4 ~ author.names[[4]],
+                           study==5 ~ author.names[[5]],
+                           study==6 ~ author.names[[6]],
+                           study==7 ~ author.names[[7]]))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit1,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         study = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(study = reorder(study,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, study) %>% 
+  mean_qi(b_statusPD)
+
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+cols = gg_color_hue(length(levels(forest.data$study)))
+
+
+ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit1)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit1)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
+                      alpha = 0.6) +
+  geom_pointintervalh(data = forest.data.summary, size = 1) +
+  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
+    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_minimal() +
+  ggtitle("Richness")
 ```
+
+```{r}
+# Study effects
+#posterior <- posterior_samples(fit4)
+
+study.draws <- fit2 %>% spread_draws(b_Intercept,
+                                     b_statusPD,
+                                     r_study[study,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_study + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
+  mutate(study = case_when(study==1 ~ author.names[[1]],
+                           study==2 ~ author.names[[2]],
+                           study==3 ~ author.names[[3]],
+                           study==4 ~ author.names[[4]],
+                           study==5 ~ author.names[[5]],
+                           study==6 ~ author.names[[6]],
+                           study==7 ~ author.names[[7]]))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit2,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         study = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(study = reorder(study,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, study) %>% 
+  mean_qi(b_statusPD)
+
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+cols = gg_color_hue(length(levels(forest.data$study)))
+
+
+ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit2)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit2)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
+                      alpha = 0.6) +
+  geom_pointintervalh(data = forest.data.summary, size = 1) +
+  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
+    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_minimal() +
+  ggtitle("Shannon")
+```
+
 
 ```{r}
 # Study effects
@@ -356,123 +424,13 @@ ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)),
     aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
   labs(x = "Incidence Rate Ratio",
        y = element_blank()) +
-  theme_minimal()
-```
-
-```{r}
-# Study effects
-#posterior <- posterior_samples(fit4)
-
-study.draws <- fit6 %>% spread_draws(b_Intercept,
-                                     b_statusPD,
-                                     r_study[study,effect]) %>%
-  filter(effect=="statusPD") %>%
-  mutate(b_statusPD = r_study + b_statusPD) %>%
-  mutate(b_statusPD = exp(b_statusPD)) %>%
-  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
-  mutate(study = case_when(study==1 ~ author.names[[1]],
-                           study==2 ~ author.names[[2]],
-                           study==3 ~ author.names[[3]],
-                           study==4 ~ author.names[[4]],
-                           study==5 ~ author.names[[5]],
-                           study==6 ~ author.names[[6]],
-                           study==7 ~ author.names[[7]]))
-
-# Pooled effect
-pooled.draws <- spread_draws(fit6,b_statusPD) %>%
-  mutate(b_statusPD = exp(b_statusPD),
-         study = "Pooled Effect")
-
-
-forest.data <- bind_rows(study.draws, pooled.draws) %>% 
-   ungroup() %>%
-   mutate(study = reorder(study,b_statusPD))
-
-forest.data.summary <- group_by(forest.data, study) %>% 
-  mean_qi(b_statusPD)
-
-
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length = n + 1)
-  hcl(h = hues, l = 65, c = 100)[1:n]
-}
-
-cols = gg_color_hue(length(levels(forest.data$study)))
-
-
-ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
-       data = forest.data) +
-  geom_vline(xintercept = exp(fixef(fit6)[2, 1]), color = "grey", size = 1) +
-  geom_vline(xintercept = exp(fixef(fit6)[2, 3:4]), color = "grey", linetype = 2) +
-  geom_vline(xintercept = 1, color = "black", size = 1) +
-  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
-                      alpha = 0.6) +
-  geom_pointintervalh(data = forest.data.summary, size = 1) +
-  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
-    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
-  labs(x = "Incidence Rate Ratio",
-       y = element_blank()) +
-  theme_minimal()
-```
-```{r}
-# Study effects
-#posterior <- posterior_samples(fit4)
-
-study.draws <- fit9 %>% spread_draws(b_Intercept,
-                                     b_statusPD,
-                                     r_study[study,effect]) %>%
-  filter(effect=="statusPD") %>%
-  mutate(b_statusPD = r_study + b_statusPD) %>%
-  mutate(b_statusPD = (b_statusPD)) %>%
-  dplyr::select(.chain,.iteration,.draw,b_statusPD,study) %>% convert(fct(study)) %>%
-  mutate(study = case_when(study==1 ~ author.names[[1]],
-                           study==2 ~ author.names[[2]],
-                           study==3 ~ author.names[[3]],
-                           study==4 ~ author.names[[4]],
-                           study==5 ~ author.names[[5]],
-                           study==6 ~ author.names[[6]],
-                           study==7 ~ author.names[[7]]))
-
-# Pooled effect
-pooled.draws <- spread_draws(fit9,b_statusPD) %>%
-  mutate(b_statusPD = (b_statusPD),
-         study = "Pooled Effect")
-
-
-forest.data <- bind_rows(study.draws, pooled.draws) %>% 
-   ungroup() %>%
-   mutate(study = reorder(study,b_statusPD))
-
-forest.data.summary <- group_by(forest.data, study) %>% 
-  mean_qi(b_statusPD)
-
-
-gg_color_hue <- function(n) {
-  hues = seq(15, 375, length = n + 1)
-  hcl(h = hues, l = 65, c = 100)[1:n]
-}
-
-cols = gg_color_hue(length(levels(forest.data$study)))
-
-
-ggplot(aes(b_statusPD, relevel(study, "Pooled Effect", after = Inf)), 
-       data = forest.data) +
-  geom_vline(xintercept = (fixef(fit9)[2, 1]), color = "grey", size = 1) +
-  geom_vline(xintercept = (fixef(fit9)[2, 3:4]), color = "grey", linetype = 2) +
-  geom_vline(xintercept = 1, color = "black", size = 1) +
-  geom_density_ridges(fill = "blue", rel_min_height = 0.01, col = NA, scale = 1,
-                      alpha = 0.6) +
-  geom_pointintervalh(data = forest.data.summary, size = 1) +
-  geom_text(data = mutate_if(forest.data.summary, is.numeric, round, 2),
-    aes(label = glue("{b_statusPD} [{.lower}, {.upper}]"), x = Inf), hjust = "inward") +
-  labs(x = "Incidence Rate Ratio",
-       y = element_blank()) +
-  theme_minimal()
+  theme_minimal() +
+  ggtitle("Inv. simpson")
 ```
 
 
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 ## One-stage approach
 
 ## Asses ICC
@@ -485,66 +443,5 @@ names <- alpha_dat %>% group_by(study) %>% slice(1) %>% dplyr::select(author)
 exp(ranef(fit)$study) %>% t() %>% kable(caption = "Random effects poisson regression with library size as offset - richness") %>% kableExtra::kable_styling()
 exp(ranef(fit2)$study) %>% t() %>% kable(caption = "Random effects poisson regression with library size as offset - shannon") %>% kableExtra::kable_styling()
 exp(ranef(fit3)$study) %>% t() %>% kable(caption = "Random effects poisson regression with library size as offset - inv.simpson") %>% kableExtra::kable_styling()
-```
-
-## Sensitivity to library size
-
-```{r}
-range <- alpha_dat %>% filter(study == 2 & N > 0) %>% dplyr::select(N) %>% range
-```
-
-
-There are some studies in which the library size is highly variable, e.g. the study by *Qian et al. (2018)* ranges from `r range[1] ` to `r range[2]` reads per sample. As samples with low reads may be very unreliable/uninformative, we may decide on a cut-off value for a minimum library size. To make a more informed choice, we may conduct a sensitivity analysis to get a feeling for the influence of the library size on the results.
-For this sensitivity analysis, we will perform the analysis repeatedly for different minimum library sizes and plot the coefficients as a function of library size.
-
-
-```{r fig.cap="Sensitivity", fig.height=5, fig.width=10}
-sensitivity_ls(alpha_dat, index = "richness")
-```
-
-```{r fig.cap="Sensitivity", fig.height=5, fig.width=10}
-sensitivity_ls(alpha_dat, index = "shannon")
-```
-
-```{r fig.cap="Sensitivity", fig.height=5, fig.width=10}
-sensitivity_ls(alpha_dat, index = "inv.simpson")
-```
-
-
-
-# Extrapolation of alpha diversity
-
-```{r eval=FALSE, include=FALSE}
-A_next <- iNEXT::iNEXT(data.frame(t(A_dat[,-1])),q=0)
-p <- ggiNEXT(A_next,type = 1) +
-  theme(legend.position = "none")
-
-A_next$iNextEst$X1
-
-p.dat <- fortify(A_next,type=2)
-
-p.dat$method <- factor(p.dat$method, c("interpolated", "extrapolated"),c("interpolation", "extrapolation"))
-
-ggplot(aes(x=x,y=y,fill=site,col=site),data=p.dat) +
-  geom_line(aes(linetype=method),size=1,alpha=.4) +
-  theme(legend.position = "none") +
-  scale_x_continuous(labels=comma)
-
-```
-
-
-```{r eval=FALSE, include=FALSE}
-d <- lapply(dat,function(x) aggregate_taxa(x,"Sequence"))
-
-datA <- data.frame(otu_table(d[[1]]))
-str(datA)
-
-
-iAd <- iNEXT::iNEXT(datA,q=0,datatype="abundance")
-
-
-Ad <- iNEXT::estimateD(datA,datatype = "abundance",base="size",level=100000,conf=0.95)
-
-
 ```
 

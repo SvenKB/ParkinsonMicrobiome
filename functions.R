@@ -348,9 +348,10 @@ prevalence_by_abundance <- function(phyl,thrs=0.05) {
 sparsityHeatmap <- function(phyl,level) {
   
   id <- rownames(data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))))  
-  d <- data.frame(t(otu_table(aggregate_taxa(phyl,level=level)))) %>%
-    mutate(N= rowSums(.))
-  rownames(d) <- id
+  d <- as.data.frame(t(otu_table(aggregate_taxa(phyl,level=level))))
+  d$N <- rowSums(d)
+  
+  #rownames(d) <- id
   
   
   # Prepare zero-inflation indicator matrix
@@ -358,12 +359,7 @@ sparsityHeatmap <- function(phyl,level) {
   d.mat[d.mat>0] <- 1
   d.mat <- d.mat %>% dplyr::select(-N)
   d.mat <- d.mat[order(rowSums(d.mat),decreasing = T),order(colSums(d.mat),decreasing = T)]
-  rownames(d.mat) <- id[order(rowSums(d.mat),decreasing = T)]
   
-  
-  rownames(d)
-  rownames(d.mat)
-  rownames(rowDat)
   # Prepare sequencing depth vector
   N <- d[order(rowSums(d.mat),decreasing = T),"N"]
   
@@ -371,7 +367,6 @@ sparsityHeatmap <- function(phyl,level) {
   
   rowAnn <- HeatmapAnnotation(Depth = anno_barplot(as.matrix(rowDat$N), border = F,axis_param = list(direction = "reverse"),width = unit(4, "cm")),
                               which = "row")
-  
   
   ComplexHeatmap::Heatmap(as.matrix(d.mat),
                           col = circlize::colorRamp2(breaks = c(0,1),colors = c("#D60C00FF","#00468BFF"),space="sRGB"),
@@ -389,17 +384,16 @@ sparsityHeatmap <- function(phyl,level) {
 }
 
 
-
 ############################ 
 #### Analysis functions ####
 ############################
 
 ### Negative binomial random effect model
 
-fitZINBMM <- function(outcome) {
+fitZINBMM <- function(outcome,data) {
   
   fit <- tryCatch(NBZIMM::glmm.zinb(fixed = as.formula(paste0(outcome,"~status+offset(log(N))")),
-                                    random = ~ 1|author,data=full.dat,family = zi.negative.binomial(),niter=100,method="ML"),
+                                    random = ~ 1|author,data=data,family = zi.negative.binomial(),niter=100,method="ML"),
                   error=function(e) NULL)
   return(fit)
   
@@ -444,16 +438,17 @@ sensitivity_ls <- function(data,index="richness",stepsize=1000,length=50) {
 
 ## Permutation based differential abundance testing
 
-perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=10000,strata=NULL,plot=F) {
+perm_DA <- function(otu,group,meta,type=c("mean","IRR"),depth=NULL,n.perm=10000,strata=NULL,plot=F) {
   
   #otu <- unlist(otu)
-  RA <- unlist(otu/sum(otu)) 
+  #RA <- unlist(otu/sum(otu)) 
+  RA <- otu
   N <- length(RA)
   # Create grouping variable  
   Z <- group
   depth <- unlist(depth)
   
-  ## Function to compute test statistic as log ratio of mean absolut abundances
+  ## Function to compute test statistic as log ratio of mean absolute abundances
   meanDiff <- function(i,RA,Z,weighted=F,weights=c()){
     Z <- Z[i]
     w <- weights
@@ -464,7 +459,11 @@ perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=1
     }
   }
   
-  # Calculate relative abundances
+  #IRR <- function(i,N,RA,Z,weighted=F,weights=c()){
+  #  Z <- Z[i]
+  #  w <- weights
+  #    log(mean(RA[Z=="PD"])/mean(RA[Z=="HC"]))
+  #}
   
   #### Construct permutation scheme, restricted to adjust for strata if necessary
   if(is.null(strata)==T) {
@@ -475,7 +474,7 @@ perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=1
   }
   
   #### Calculate empirical distributons of test statistics
-  if(type=="weighted") {
+  if(type=="IRR") {
     # Calculate test statistic per permutation
     theta_hat <- apply(Z.set,1,meanDiff,RA=RA,Z=Z,weighted=T,weights=depth)
     # Calculate observed test statistic
@@ -488,7 +487,7 @@ perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=1
     theta <- meanDiff(seq_len(N),RA,Z)
   }
   #### Calculate p-value
-  thetas <- sum(theta_hat >= theta)
+  thetas <- sum(abs(theta_hat) >= abs(theta))
   p <- round(thetas / (n.perm+1),4)
   
   #### Prepate output
@@ -496,7 +495,10 @@ perm_DA <- function(otu,group,meta,type=c("mean","weighted"),depth=NULL,n.perm=1
     plot(density(theta_hat))
     abline(v=theta)
   }
-  return(p)
+  
+  out <- list(p,
+              theta)
+  return(out)
 }
 
 
