@@ -107,6 +107,8 @@ project_path <- c("G:\\Projects\\ParkinsonMicrobiome\\")
 
 
 
+## Prepare taxonomy based on same region data
+
 path <- paste0(project_path,"Data\\")
 seq_same <- paste("Sequences_sameregion\\")
 tax_same <- paste("Classified_sameregion\\Classified_Unaligned_Sliced_F_Sequences_") 
@@ -120,7 +122,7 @@ seq <- foreach(i=seq_along(seq)) %do% data.frame("ID"=paste0("ASV",names(unlist(
 taxon <- lapply(taxa,prepare_taxonomy_sameregion)
 
 A_tax <- taxon[[1]] %>% left_join(seq[[1]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
-B_tax <- taxon[[2]] %>% left_join(seq[[2]])  %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
+B_tax <- taxon[[2]] %>% left_join(seq[[2]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
 C_tax <- taxon[[3]] %>% left_join(seq[[3]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
 E_tax <- taxon[[4]] %>% left_join(seq[[4]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
 F_tax <- taxon[[5]] %>% left_join(seq[[5]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
@@ -128,11 +130,23 @@ H_tax <- taxon[[6]] %>% left_join(seq[[6]]) %>% apply(2,function(x) gsub('\"', "
 I_tax <- taxon[[7]] %>% left_join(seq[[7]]) %>% apply(2,function(x) gsub('\"', "", x, fixed = TRUE)) %>% as_tibble()
 
 
+## Prepare taxonomy based on full data
+
+A_tax_FS <- prepare_taxonomy(A_data)
+B_tax_FS <- prepare_taxonomy(B_data)
+C_tax_FS <- prepare_taxonomy(C_data)
+E_tax_FS <- prepare_taxonomy(E_data)
+F_tax_FS <- prepare_taxonomy(F_data)
+H_tax_FS <- prepare_taxonomy(H_data)
+I_tax_FS <- prepare_taxonomy(I_data)
+
 ```
 
 ### Quality filtering
 
 ```{r}
+
+## Same region
 A_clean <- clean(A_dat,A_tax,filter="rel")
 B_clean <- clean(B_dat,B_tax,filter="rel")
 C_clean <- clean(C_dat,C_tax,filter="rel")
@@ -141,12 +155,15 @@ F_clean <- clean(F_dat,F_tax,filter="rel")
 H_clean <- clean(H_dat,H_tax,filter="rel")
 I_clean <- clean(I_dat,I_tax,filter="rel")
 
+## Full sequences
+A_clean_FS <- clean(A_dat,A_tax_FS,filter="rel") 
+B_clean_FS <- clean(B_dat,B_tax_FS,filter="rel") 
+C_clean_FS <- clean(C_dat,C_tax_FS,filter="rel") 
+E_clean_FS <- clean(E_dat,E_tax_FS,filter="rel") 
+F_clean_FS <- clean(F_dat,F_tax_FS,filter="rel") 
+H_clean_FS <- clean(H_dat,H_tax_FS,filter="rel") 
+I_clean_FS <- clean(I_dat,I_tax_FS,filter="rel") 
 
-#ind <- I_tax[I_tax$Phylum=="Bacteroidetes","ID"] %>% pull
-
-#apply(I_dat[,ind],1,sum)
-
-#I_clean[,names(I_clean) %in% ind]
 ```
 
 
@@ -210,8 +227,10 @@ J_meta <- readr::read_csv(paste0(project_path,"Data/Meta/J_meta.csv")) %>%
 # Combine Taxonomies, Metadata and ASV-Data into phyloseq objects
 
 # Study A
+
+
 ## OTU
-OTU_A <- as.matrix(A_clean[,-1])
+OTU_A <- as.matrix(A_clean_FS[,-1])
 rownames(OTU_A) <- A_dat$ID
 OTU_A <- otu_table(t(OTU_A),taxa_are_rows = T)
 
@@ -230,6 +249,23 @@ A_sample <- A_Meta_ENA %>%
 
 ## Combine
 A_phyl <- phyloseq(OTU_A,tax_A,A_sample)
+
+
+## Study A - Original
+## OTU
+OTU_A_FS <- as.matrix(A_clean[,-1])
+rownames(OTU_A_FS) <- A_dat$ID
+OTU_A_FS <- otu_table(t(OTU_A_FS),taxa_are_rows = T)
+
+## Tax
+tax_A_FS <- as.matrix(A_tax_FS[,-1])
+rownames(tax_A_FS) <- A_tax_FS$ID
+
+tax_A_FS <- tax_table(tax_A_FS)
+
+## Combine
+
+A_phyl_FS <- phyloseq(OTU_A_FS,tax_A_FS,A_sample)
 
 
 # Study B
@@ -256,6 +292,22 @@ B_sample <- B_Meta_ENA %>%
 
 ## Combine
 B_phyl <- phyloseq(OTU_B,tax_B,B_sample)
+
+
+## Study B - Full sequence
+## OTU
+OTU_B_FS <- as.matrix(B_clean_FS[,-1])
+rownames(OTU_B_FS) <- B_dat$ID
+OTU_B_FS <- otu_table(t(OTU_B_FS),taxa_are_rows = T)
+
+## Tax
+tax_B_FS <- as.matrix(B_tax_FS[,-1])
+rownames(tax_B_FS) <- B_tax_FS$ID
+tax_B_FS <- tax_table(tax_B_FS)
+
+
+## Combine
+B_phyl_FS <- phyloseq(OTU_B_FS,tax_B_FS,B_sample)
 
 
 # Study C
@@ -287,6 +339,23 @@ C_sample <- C_Meta %>%
 C_phyl <- phyloseq(OTU_C,tax_C,C_sample)
 
 
+## Study C - Full sequence
+## OTU
+OTU_C_FS <- as.matrix(C_clean_FS[,-1])
+rownames(OTU_C_FS) <- C_dat$ID
+OTU_C_FS <- otu_table(t(OTU_C_FS),taxa_are_rows = T)
+
+## Tax
+tax_C_FS <- as.matrix(C_tax_FS[,-1])
+rownames(tax_C_FS) <- C_tax_FS$ID
+tax_C_FS <- tax_table(tax_C_FS)
+
+
+## Combine
+C_phyl_FS <- phyloseq(OTU_C_FS,tax_C_FS,C_sample)
+
+
+
 # Study E
 ## OTU
 OTU_E <- as.matrix(E_clean[,-1])
@@ -312,6 +381,23 @@ E_sample <- E_meta %>%
 E_phyl <- phyloseq(OTU_E,tax_E,E_sample)
 
 
+## Study E - Full sequence
+## OTU
+OTU_E_FS <- as.matrix(E_clean_FS[,-1])
+rownames(OTU_E_FS) <- E_dat$ID
+OTU_E_FS <- otu_table(t(OTU_E_FS),taxa_are_rows = T)
+
+## Tax
+tax_E_FS <- as.matrix(E_tax_FS[,-1])
+rownames(tax_E_FS) <- E_tax_FS$ID
+tax_E_FS <- tax_table(tax_E_FS)
+
+
+## Combine
+E_phyl_FS <- phyloseq(OTU_E_FS,tax_E_FS,E_sample)
+
+
+
 # Study F
 ## OTU
 OTU_F <- as.matrix(F_clean[,-1])
@@ -335,6 +421,22 @@ F_sample <- F_Meta_ENA %>%
 
 ## Combine
 F_phyl <- phyloseq(OTU_F,tax_F,F_sample)
+
+
+## Study F - Full sequence
+## OTU
+OTU_F_FS <- as.matrix(F_clean_FS[,-1])
+rownames(OTU_F_FS) <- F_dat$ID
+OTU_F_FS <- otu_table(t(OTU_F_FS),taxa_are_rows = T)
+
+## Tax
+tax_F_FS <- as.matrix(F_tax_FS[,-1])
+rownames(tax_F_FS) <- F_tax_FS$ID
+tax_F_FS <- tax_table(tax_F_FS)
+
+
+## Combine
+F_phyl_FS <- phyloseq(OTU_F_FS,tax_F_FS,F_sample)
 
 
 # Study H
@@ -369,6 +471,32 @@ H_sample <- H_meta %>%
 H_phyl <- phyloseq(OTU_H,tax_H,H_sample)
 
 
+## Study H - Full sequence
+## OTU
+OTU_H_FS <- H_clean_FS %>%
+  left_join(H_Meta_ENA) %>%
+  group_by(Sample) %>%
+  summarize_if(is.numeric,funs(sum)) %>%
+  arrange(desc(Sample))
+
+id <- substr(OTU_H_FS$Sample,4,8)
+id[40:length(id)] <- paste0("P",id[40:length(id)])
+
+OTU_H_FS$Sample[1:39] <-  paste0('IfM ',substr(id[1:39],1,1),"0",substr(id[1:39],2,4))
+OTU_H_FS$Sample[40:nrow(OTU_H_FS)] <- paste0('IfM ',substr(id[40:length(id)],1,2),"0",substr(id[40:length(id)],3,5))
+
+OTU_H_FS <- OTU_H_FS %>% column_to_rownames(var="Sample") %>% as.matrix %>% t %>% otu_table(taxa_are_rows = T)
+
+## Tax
+tax_H_FS <- as.matrix(H_tax_FS[,-1])
+rownames(tax_H_FS) <- H_tax_FS$ID
+tax_H_FS <- tax_table(tax_H_FS)
+
+
+## Combine
+H_phyl_FS <- phyloseq(OTU_H_FS,tax_H_FS,H_sample)
+
+
 # Study I
 
 ## OTU
@@ -394,6 +522,23 @@ I_sample <- I_meta %>%
 I_phyl <- phyloseq(OTU_I,tax_I,I_sample)
 
 
+## Study I - Full sequence
+## OTU
+OTU_I_FS <- as.matrix(I_clean_FS[,-1])
+rownames(OTU_I_FS) <- str_replace_all(I_dat$ID,"-",".")
+OTU_I_FS <- otu_table(t(OTU_I_FS),taxa_are_rows = T)
+
+## Tax
+tax_I_FS <- as.matrix(I_tax_FS[,-1])
+rownames(tax_I_FS) <- I_tax_FS$ID
+tax_I_FS <- tax_table(tax_I_FS)
+
+
+## Combine
+I_phyl_FS <- phyloseq(OTU_I_FS,tax_I_FS,I_sample)
+
+
+# Same region (V4) sequences
 A_phyl
 B_phyl
 C_phyl
@@ -401,6 +546,17 @@ E_phyl
 F_phyl
 H_phyl
 I_phyl
+
+# Full sequences
+A_phyl_FS
+B_phyl_FS
+C_phyl_FS
+E_phyl_FS
+F_phyl_FS
+H_phyl_FS
+I_phyl_FS
+
+
 
 ```
 
@@ -413,6 +569,15 @@ E_phyl <- prune_samples(sample_sums(E_phyl)>=10000, E_phyl) ## 2 Samples filtere
 F_phyl <- prune_samples(sample_sums(F_phyl)>=10000, F_phyl) ## 1 sample filtered
 H_phyl <- prune_samples(sample_sums(H_phyl)>=10000, H_phyl)
 I_phyl <- prune_samples(sample_sums(I_phyl)>=10000, I_phyl) ## 47 samples filtered
+
+A_phyl_FS <- prune_samples(sample_sums(A_phyl_FS)>=10000, A_phyl_FS)
+B_phyl_FS <- prune_samples(sample_sums(B_phyl_FS)>=10000, B_phyl_FS) # 19 Samples filtered
+C_phyl_FS <- prune_samples(sample_sums(C_phyl_FS)>=10000, C_phyl_FS) # 2 samples filtered
+E_phyl_FS <- prune_samples(sample_sums(E_phyl_FS)>=10000, E_phyl_FS) # 2 samples filtered
+F_phyl_FS <- prune_samples(sample_sums(F_phyl_FS)>=10000, F_phyl_FS) # 1 sample filtered
+H_phyl_FS <- prune_samples(sample_sums(H_phyl_FS)>=10000, H_phyl_FS)
+I_phyl_FS <- prune_samples(sample_sums(I_phyl_FS)>=10000, I_phyl_FS) # 
+
 
 
 
@@ -433,6 +598,14 @@ dat <- list(A_phyl,
             H_phyl,
             I_phyl)
 #saveRDS(dat,"phyl_list.RDS")
+dat_FS <- list(A_phyl_FS,
+               B_phyl_FS,
+               C_phyl_FS,
+               E_phyl_FS,
+               F_phyl_FS,
+               H_phyl_FS,
+               I_phyl_FS)
+#saveRDS(dat_FS,"phyl_list_FS.RDS")
 
 fpp <- plyr::ldply(sapply(dat,features_per_phylum),rbind)
 rownames(fpp) <- author.names
@@ -449,6 +622,8 @@ The tables should always be interpreted in combination with the table above (and
 ```{r, fig.cap = "Pietrucci et al., 2019"}
 prevalence_per_phylum(A_phyl) %>% kable(caption=paste0(author.names[[1]])) %>% kable_styling()
 prevalence_by_abundance(A_phyl,thrs = 0)
+
+
 ```
 * Deinococcus-Thermus
   + only one taxon

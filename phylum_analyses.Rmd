@@ -17,7 +17,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.width = 12)
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.width = 12,cache = T)
 ```
 
 ```{css include=FALSE}
@@ -261,3 +261,338 @@ meta %>% bind_cols(otu) %>% dplyr::select(status,author,all_of(sig)) %>% melt %>
   facet_wrap(~variable,ncol=1,scales = "free") 
 
 ```
+
+# Stratified analyses
+
+```{r}
+full.dat <- prepare_DA_data(dat,tax=level)
+glimpse(full.dat)
+library(meta)
+library(broom)
+
+# Augment tidy function with new variables to extract
+
+
+
+tidy_n <- function(x) {
+  tidydf = tidy(x, conf.int=T)
+  tidydf$N = length(x$residuals)
+  tidydf$Outcome = colnames(x$model)[1]
+  tidydf
+}
+
+#fit <- (glm.nb(Firmicutes~status+offset(log(N)),data=full.dat))
+#summary(fit)
+
+#colnames(fit$model)[1]
+
+# Univariate models on nested datasets
+
+#meta_df <- full.dat %>%
+#  group_by(author) %>%
+#  nest() %>%
+#  mutate(model = map(data, function(x) glm.nb(Firmicutes~status+offset(log(N)),data=x)),
+#         est = map(model,tidy_n)) %>%
+#  dplyr::select(author,est) %>%
+#  unnest() %>%
+#  filter(term=="statusPD") %>%
+#  mutate(p.value = round(p.value,4),
+#         TE = estimate,
+#         seTE = std.error,
+#         .after = author,
+#         .keep = "unused")
+
+
+# Meta-analysis with random effect 
+
+#m <- meta::metagen(TE,
+#             seTE,
+#             data=meta_df,
+#             studlab=paste(author),
+#             outclab = "Firmicutes",
+#             comb.fixed = F,
+#             comb.random = T,
+#             prediction=TRUE,
+#             sm="RR")
+
+# Make forest plot
+
+
+#meta::forest(m)
+
+
+
+
+# Multivariate apply, to apply univariate models per taxon per study
+
+# Select taxa names
+taxa <- setdiff(colnames(full.dat),c("ID","status","author","N"))
+
+
+
+# Prepare model wrapper to iterate over all bacteria -  with tryCatch to deal with possible non-convergence
+negbin_model <- function(.x){
+  sapply(taxa,function(x) {
+    tryCatch(glm.nb(as.formula(paste0(x,"~status+offset(log(N))")),data=.x),error=function(e) print(paste0("Something went wrong!: ",e," ", x)))
+    }
+    ,simplify = F)
+}
+
+
+mdf <- full.dat %>%
+  group_by(author) %>%
+  nest() %>%
+  mutate(model = map(.x = data,negbin_model)) %>% 
+  unnest(model)
+
+
+meta_model <- function(x) {
+
+meta::metagen(TE,
+             seTE,
+             data=x,
+             studlab=paste(author),
+             comb.fixed = F,
+             comb.random = T,
+             prediction=TRUE,
+             outclab =x$Outcome,
+             sm="RR")
+}
+
+
+is.converged <- function(x) {
+  !coef(summary(x))["statusPD",2] > 10000
+
+}
+
+meta_models <- mdf %>%
+  filter(!map_lgl(model,is.character )) %>%
+  filter(map_lgl(model,is.converged)) %>%
+  mutate(est = map(model,tidy_n)) %>%
+  dplyr::select(author,est) %>%
+  unnest() %>%
+  filter(term=="statusPD") %>%
+  mutate(p.value = round(p.value,4),
+         TE = (estimate),
+         seTE = (std.error),
+         .after = author,
+         .keep = "unused") %>%
+  arrange(Outcome) %>%
+  ungroup() %>% group_by(Outcome) %>%
+  nest() %>%
+  mutate(model = map(data,meta_model))
+
+
+```
+
+
+
+```{r fig.height=30, fig.width=10}
+
+library(ggthemr)
+library(firatheme)
+library(tvthemes)
+library(bbplot)
+library(ggpomological)
+library(ggtech)
+library(hrbrthemes)
+library(ggalt)
+
+tidyMetagen <- function(model,
+                        parameter = c("studlab","TE","seTE","lower","upper","statistic","pval","df","TE.fixed",
+                                      "seTE.fixed","lower.fixed","upper.fixed","zval.fixed","statistic.fixed","pval.fixed",
+                                      "TE.random","seTE.random","lower.random","upper.random","zval.random","statistic.random",
+                                      "pval.random","null.effect","seTE.predict","lower.predict","upper.predict","level.predict",
+                                      "w.random","w.fixed",
+                                      "I2")) {
+  
+  out <- reduce(model[parameter],data.frame,check.rows=F)
+  colnames(out) <- parameter
+  
+  return(out)
+}
+
+
+getWeights <- function(x) x/sum(x)*100
+
+
+plot_df <- meta_models %>%
+  mutate(est = map(model,tidyMetagen)) %>%
+  dplyr::select(Outcome,est) %>%
+  unnest %>%
+  mutate(TE = round(exp(TE),2),
+         seTE = round(exp(seTE),2),
+         upper = round(exp(upper),2),
+         lower = round(exp(lower),2),
+         pval.random = round(pval.random,2),
+         pval.fixed = round(pval.fixed,2)) %>%
+  group_by(Outcome) %>%
+  mutate(weights.r = round(getWeights(w.random),1),
+         weights.f = round(getWeights(w.fixed),1)) %>% ungroup
+
+
+meta_effects <- plot_df %>%
+  group_by(Outcome) %>%
+  slice(1) %>%
+  ungroup() %>%
+  dplyr::select(Outcome,TE.fixed:pval.random) %>%
+  pivot_longer(TE.fixed:upper.random) %>%
+  mutate(estimates = gsub(".fixed","",gsub(".random","",name)),
+         names = sub('.*\\.', '', name),.keep="unused") %>%
+  pivot_wider(values_from = value,
+              names_from = estimates) %>%
+  mutate(studlab = names,
+         TE = round(exp(TE),2),
+         seTE = round(exp(seTE),2),
+         upper = round(exp(upper),2),
+         lower = round(exp(lower),2),
+         weights.r = 100,
+         weights.f = 100,
+         .keep="unused")
+
+final_df <- plot_df %>%
+  
+  bind_rows(meta_effects) %>%
+  group_by(Outcome) %>%
+  mutate(I2 = round(mean(I2,na.rm=T),2)*100) %>%
+  ungroup %>%
+  mutate(studlab = relevel(factor(studlab),"random")) %>%
+  filter(studlab != "fixed") %>%
+  arrange(Outcome,studlab) %>%
+  mutate(fullab = case_when(studlab == "random" ~ paste0(TE," [",lower,"; ",upper,"] ",weights.r," %","\n I² = ",I2," % ; p = ",pval.random),
+                            studlab != "random" ~ paste0(TE," [",lower,"; ",upper,"] ",weights.r," %")),
+         studlab =  plyr::revalue(studlab,c("random"="Random effect model")),
+         pval.rand = pval.random,
+         pval.fix = pval.fixed) %>%
+  dplyr::select(-ends_with(".fixed")) %>%
+  dplyr::select(-ends_with(".random")) %>%
+  dplyr::select(-ends_with(".predict")) %>%
+  filter(Outcome != "Tenericutes") %>%
+  filter(Outcome != "Fusobacteria") %>%
+  filter(Outcome != "Elusimicrobia") %>%
+  filter(pval.rand < 0.05)
+
+## TO DO
+
+# Get weights
+# Get I^2
+# get tau^2
+
+levels(final_df$studlab)
+
+
+te_color <- "darkgrey"
+overall_color <- "darkred"
+
+pal <- c(
+  "Random effect model" = overall_color,
+  "fixed" = overall_color,
+  "Aho et al., 2019" = te_color, 
+  "Barichella et al., 2019" = te_color, 
+  "Heintz-Buschart et al., 2018" = te_color,
+  "Keshavarzian et al., 2015" = te_color, 
+  "Pietrucci et al., 2019" = te_color, 
+  "Qian et al., 2018" = te_color, 
+  "Weis et al., 2019" = te_color
+)
+
+
+
+p <- ggplot(aes(y=studlab,x=TE,color=studlab),data=final_df) +
+  #geom_linerange(aes(xmin=lower,xmax=upper,width=.1),col="blue") +
+  #geom_errorbar(aes(xmin=lower,xmax=upper,width=.25),size=1.25) +
+  geom_dumbbell(aes(x=lower,xend=upper),size=1.3,size_xend=1.5,size_x=1.5,colour_x="black",colour_xend="black") + 
+  geom_point(shape=18,size=3,color="black") +
+  scale_x_log10(limits=c(-15,55000),breaks=c(.01,.1,.33,3,10,100,500),labels = c(.01,.1,.33,3,10,100,"")) +
+  facet_grid(Outcome~.,scales = "free",space="free") +
+  xlab("Incidence Rate Ratio") +
+  geom_vline(xintercept = 1, linetype="dashed",size=1,col="black") + 
+  #theme_classic()+
+  theme_ipsum(base_family = "Times New Roman",
+              grid = "X",
+              axis_title_size = 12,axis_title_just = "cc") +
+  #theme_hrbrmstr() + 
+  geom_text(aes(label=as.character(final_df$fullab)),y=final_df$studlab,x=4,size=3) +
+  ylab(NULL) +
+  scale_colour_manual(values = pal) +
+  theme(legend.position = "none") +
+  ggtitle("Two-stage meta analyses")
+
+p
+
+ggsave("Plots/meta_phylum.PDF",plot=p,device = cairo_pdf,dpi=300,width=200,height = 290,units="mm")
+
+```
+
+
+## Effects of harmonization
+
+```{r}
+dat <- readRDS("phyl_list.RDS")
+dat_fs <- readRDS("phyl_list_FS.RDS")
+level <- "Phylum"
+df <- prepare_DA_data(dat,tax=level)
+df_fs <- prepare_DA_data(dat_fs,tax=level)
+
+
+df_fs[df_fs$ID=="SRR8351974","Gemmiger"]
+
+otu_table(dat[[1]])
+otu_table(dat_fs[[1]])
+df_fs$Gemmiger == df$Gemmiger
+
+tax_table(dat[[1]])[3,]
+tax_table(dat_fs[[1]])[3,]
+
+
+
+library(meta)
+library(broom)
+
+
+df$status
+
+fit <- glm(Firmicutes~status,data=df,family=quasipoisson())
+fit0 <- glm(Firmicutes~1,data=df,family=quasipoisson())
+
+
+anova(fit,fit0,test="F")
+
+
+
+summar <- summary(fit)
+
+coef(summary(fit))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## Bayesian alternative
+```{r eval=FALSE, include=FALSE}
+
+fit <- brms::brm(data = full.dat, family = negbinomial,
+    as.formula(paste0("Firmicutes","~status+offset(log(N))")),
+    prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b),
+              prior(gamma(0.01, 0.01), class = shape)),  # this is the brms default
+    iter = 4000, warmup = 1000, cores = 2, chains = 2,
+    seed = 11)
+
+
+str(fit)
+```
+
+
+
+
+
