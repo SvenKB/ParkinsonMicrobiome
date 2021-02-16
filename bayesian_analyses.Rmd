@@ -1,0 +1,558 @@
+---
+title: "Bayesian Analyses"
+author: "Sven Kleine Bardenhorst"
+date: "23 1 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, message=FALSE, warning=FALSE,fig.width = 12,cache = T)
+library(meta)
+library(broom)
+library(brms)
+library(bayesplot)
+library(rstanarm)
+library(tidybayes)
+```
+
+```{css include=FALSE}
+body .main-container {
+max-width: 1600px;
+}
+```
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{r load packages, message=FALSE, warning=FALSE, include=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+
+#### Level
+level <- "Phylum"
+```
+
+```{r echo=FALSE, message=FALSE}
+dat <- readRDS("phyl_list.RDS")
+
+```
+
+
+## Bayesian alternative
+```{r echo=FALSE}
+full.dat <- prepare_DA_data(dat,tax=level)
+
+name <- unique(full.dat$author)
+
+names <- cbind(paste0("Study",1:7),name)
+
+
+full.dat <- full.dat %>%
+  mutate(author = case_when(author==names[[1,2]] ~ names[[1,1]],
+                            author==names[[2,2]] ~ names[[2,1]],
+                            author==names[[3,2]] ~ names[[3,1]],
+                            author==names[[4,2]] ~ names[[4,1]],
+                            author==names[[5,2]] ~ names[[5,1]],
+                            author==names[[6,2]] ~ names[[6,1]],
+                            author==names[[7,2]] ~ names[[7,1]]))
+
+fit <- brms::brm(data = full.dat, family = zero_inflated_negbinomial,
+    as.formula(paste0("Verrucomicrobia","~status+offset(log(N))+(status|author)")),
+    prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b),
+              prior(gamma(0.01, 0.01), class = shape)),  # this is the brms default
+    iter = 4000, warmup = 1000, cores = 2, chains = 2,
+    seed = 11)
+
+#saveRDS("fit_backup_fixed.RDS",object = fit)
+
+summary(fit)
+
+get_variables(fit)
+
+prop_zero <- function(x) mean(x == 0)
+
+yrep <- posterior_predict(fit, draws = 5000)
+
+ppc_stat(full.dat$Synergistetes, yrep, stat = "prop_zero")
+
+pp_check(fit) + scale_x_log10()
+
+```
+
+
+```{r}
+library(tidybayes)
+library(ggridges)
+library(glue)
+library(hrbrthemes)
+library(ggdist)
+library(ggsci)
+
+fit <- readRDS("fit_backup_random.RDS")
+fit <- readRDS("fit_backup_fixed.RDS")
+
+
+brms::stancode(fit)
+
+## Include random effect for status
+## Throw away intercept
+## Try rstanarm to precompile models
+
+
+study.draws <- fit %>% spread_draws(b_Intercept,
+                     b_statusPD,
+                     r_author[author,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_author + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,author) %>% convert(fct(author))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         author = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(author = case_when(author==names[[1,1]] ~ names[[1,2]],
+                            author==names[[2,1]] ~ names[[2,2]],
+                            author==names[[3,1]] ~ names[[3,2]],
+                            author==names[[4,1]] ~ names[[4,2]],
+                            author==names[[5,1]] ~ names[[5,2]],
+                            author==names[[6,1]] ~ names[[6,2]],
+                            author==names[[7,1]] ~ names[[7,2]],
+                            author=="Pooled Effect" ~ "Pooled Effect")) %>%
+   mutate(author = reorder(author,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, author) %>% 
+  mean_qi(b_statusPD) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(label =  glue("{b_statusPD} [{.lower}, {.upper}]"))
+
+library(scales)
+show_col(pal_lancet()(9))
+#"#AD002AFF"
+
+pal <- as.vector(yarrr::piratepal(palette="brave")[c(3,5)])
+pal <- wesanderson::wes_palettes$BottleRocket1[c(3,4)]
+
+p <- ggplot(aes(b_statusPD, relevel(author, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  #geom_density_ridges(color="black", rel_min_height = 0.01, col = NA, scale = .9,
+  #                   alpha = 0.8) +
+  #geom_pointintervalh(data = forest.data.summary, size = 3) +
+  stat_halfeye(aes(fill = stat(exp(x)>1)),alpha=1,color="black") +
+  geom_text(data = forest.data.summary,
+    aes(label = label, x = 15)) +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_ipsum(base_family = "Times New Roman",
+              grid = "X",
+              axis_title_size = 12,axis_title_just = "cc") +
+    theme(legend.position = "none") +
+  scale_x_log10() +
+  scale_fill_manual(values=pal)
+
+ggsave("Plots/bayesian_meta_analysis.pdf",plot=p,device=cairo_pdf,width=210,height=149,dpi=300,units="mm")
+
+```
+
+
+```{r}
+full.dat <- full.dat %>%
+  mutate(author = case_when(author==names[[1,2]] ~ names[[1,1]],
+                            author==names[[2,2]] ~ names[[2,1]],
+                            author==names[[3,2]] ~ names[[3,1]],
+                            author==names[[4,2]] ~ names[[4,1]],
+                            author==names[[5,2]] ~ names[[5,1]],
+                            author==names[[6,2]] ~ names[[6,1]],
+                            author==names[[7,2]] ~ names[[7,1]]))
+
+
+fit_brms <- function(x) {
+  
+  fit <- brms::brm(data = full.dat, family = zero_inflated_negbinomial,
+    as.formula(paste0(x,"~status+offset(log(N))+(status|author)")),
+    prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b),
+              prior(gamma(0.01, 0.01), class = shape)),  # this is the brms default
+    iter = 4000, warmup = 1000, cores = 2, chains = 2,
+    seed = 11)
+  return(fit)
+}
+
+
+taxa <- setdiff(colnames(full.dat),c("ID","status","author","N"))
+
+
+b_models <- sapply(taxa,fit_brms,simplify = F)
+
+saveRDS(b_models,"phylum_bayes_models.RDS")
+
+```
+```{r, fig.height=100,fig.width=10}
+
+
+models <- readRDS("phylum_bayes_models.RDS")
+
+library(meta)
+library(broom)
+library(brms)
+library(bayesplot)
+library(rstanarm)
+library(tidybayes)
+library(ggridges)
+library(glue)
+library(hrbrthemes)
+library(ggdist)
+library(ggsci)
+
+getDraws <- function(curr_model) {
+  x <- models[[curr_model]]
+
+  
+  study.draws <- x %>% spread_draws(b_Intercept,
+                     b_statusPD,
+                     r_author[author,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_author + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,author) %>% convert(fct(author)) %>% mutate(Outcome = curr_model)
+
+# Pooled effect
+pooled.draws <- spread_draws(x,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         author = "Pooled Effect") %>% mutate(Outcome = curr_model)
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(author = case_when(author==names[[1,1]] ~ names[[1,2]],
+                            author==names[[2,1]] ~ names[[2,2]],
+                            author==names[[3,1]] ~ names[[3,2]],
+                            author==names[[4,1]] ~ names[[4,2]],
+                            author==names[[5,1]] ~ names[[5,2]],
+                            author==names[[6,1]] ~ names[[6,2]],
+                            author==names[[7,1]] ~ names[[7,2]],
+                            author=="Pooled Effect" ~ "Pooled Effect")) %>%
+   mutate(author = reorder(author,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, author) %>% 
+  mean_qi(b_statusPD) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(label =  glue("{b_statusPD} [{.lower}, {.upper}]"),
+         Outcome = curr_model)
+
+
+return(list(data = forest.data,
+            meta = forest.data.summary,
+            fixef = data.frame("effect"=exp(fixef(x)[2, 1]),"Outcome"=curr_model),
+            fixed_int = data.frame("effect"=exp(fixef(x)[2, 3:4]),"Outcome"=curr_model)))
+
+}
+
+
+datasets <- lapply(names(models),getDraws)
+
+
+draws <- reduce(lapply(datasets,function(x) x$data),bind_rows)
+meta <- reduce(lapply(datasets,function(x) x$meta),bind_rows)
+xintercepts1 <- reduce(lapply(datasets,function(x) x$fixef),bind_rows)
+xintercepts2 <- reduce(lapply(datasets,function(x) x$fixed_int),bind_rows)
+
+
+ggplot(aes(b_statusPD, relevel(author, "Pooled Effect", after = Inf)), 
+       data = draws) +
+  geom_vline(aes(xintercept = effect), color = "grey", size = 1,data=xintercepts1) +
+  geom_vline(aes(xintercept = effect), color = "grey", linetype = 2,data=xintercepts2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  #geom_density_ridges(color="black", rel_min_height = 0.01, col = NA, scale = .9,
+  #                   alpha = 0.8) +
+  #geom_pointintervalh(data = draws.summary, size = 3) +
+  stat_halfeye(aes(fill = stat(exp(x)>1),group=Outcome),alpha=1,color="black") +
+  geom_text(data = meta,
+    aes(label = label, x = 15)) +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  #theme_ipsum(base_family = "Times New Roman",
+  #            grid = "X",
+  #            axis_title_size = 12,axis_title_just = "cc") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_log10() +
+  scale_fill_manual(values=pal) +
+  facet_wrap(~Outcome,ncol=2,strip.position = "right") 
+  
+
+
+
+
+```
+
+
+```{r}
+plot_draws <- function(draws,meta,xintercepts1,xintercepts2,response="Firmicutes") {
+    
+  d <- filter(draws,Outcome==response)
+    m <- filter(meta,Outcome==response)
+    x1 <- filter(xintercepts1,Outcome==response)
+    x2 <- filter(xintercepts2,Outcome==response)
+  
+    p <- ggplot(aes(b_statusPD, relevel(author, "Pooled Effect", after = Inf)), 
+           data = d) +
+      geom_vline(aes(xintercept = effect), color = "grey", size = 1,data=x1) +
+      geom_vline(aes(xintercept = effect), color = "grey", linetype = 2,data=x2) +
+      geom_vline(xintercept = 1, color = "black", size = 1) +
+      #geom_density_ridges(color="black", rel_min_height = 0.01, col = NA, scale = .9,
+      #                   alpha = 0.8) +
+      #geom_pointintervalh(data = draws.summary, size = 3) +
+      stat_halfeye(aes(fill = stat(exp(x)>1),group=Outcome),alpha=1,color="black") +
+      geom_text(data = m,
+        aes(label = label, x = Inf,hjust=1)) +
+      labs(x = "Incidence Rate Ratio",
+           y = element_blank()) +
+      #theme_ipsum(base_family = "Times New Roman",
+      #            grid = "X",
+      #            axis_title_size = 12,axis_title_just = "cc") +
+      theme_minimal() +
+      theme(legend.position = "none") +
+      scale_x_log10() +
+      scale_fill_manual(values=pal)
+    
+    return(p)
+      
+}
+```
+
+```{r}
+full.dat %>%
+  group_by(author,status) %>%
+  mutate(author = case_when(author==names[[1,1]] ~ names[[1,2]],
+                            author==names[[2,1]] ~ names[[2,2]],
+                            author==names[[3,1]] ~ names[[3,2]],
+                            author==names[[4,1]] ~ names[[4,2]],
+                            author==names[[5,1]] ~ names[[5,2]],
+                            author==names[[6,1]] ~ names[[6,2]],
+                            author==names[[7,1]] ~ names[[7,2]])) %>%
+  summarize(across(where(is.numeric),sum))
+```
+
+
+
+```{r}
+plot_draws(draws=draws,
+           meta=meta,
+           xintercepts1 = xintercepts1,
+           xintercepts2 = xintercepts2,
+           response = "Fusobacteria")
+
+pp_check(models$Fusobacteria,nsamples=10, type = "ribbon_grouped",group="author") + scale_x_log10()
+
+
+prop_zero <- function(x) mean(x == 0)
+
+yrep <- posterior_predict(models$Fusobacteria, draws = 500)
+
+ppc_stat(full.dat$Fusobacteria, yrep, stat = "prop_zero", binwidth = 0.005)
+```
+
+
+
+```{r}
+
+prior_fit <-  brms::brm(data = full.dat, family = zero_inflated_negbinomial,
+    as.formula(paste0("Fusobacteria","~status+offset(log(N))+(status|author)")),
+    prior = c(prior(normal(0, 10), class = Intercept),
+              prior(normal(0, 1), class = b),
+              prior(gamma(0.01, 0.01), class = shape),
+              prior(student_t(3,0,3.6),class=sd)),
+    iter = 2000, warmup = 1000, cores = 2, chains = 2,
+    seed = 11,sample_prior = "only")
+
+prior_fit
+
+get_variables(prior_fit)
+prior_summary(prior_fit)
+plot(prior_fit)
+
+
+
+study.draws <- prior_fit %>% spread_draws(b_Intercept,
+                     b_statusPD,
+                     r_author[author,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_author + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,author) %>% convert(fct(author))
+
+# Pooled effect
+pooled.draws <- spread_draws(prior_fit,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         author = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(author = case_when(author==names[[1,1]] ~ names[[1,2]],
+                            author==names[[2,1]] ~ names[[2,2]],
+                            author==names[[3,1]] ~ names[[3,2]],
+                            author==names[[4,1]] ~ names[[4,2]],
+                            author==names[[5,1]] ~ names[[5,2]],
+                            author==names[[6,1]] ~ names[[6,2]],
+                            author==names[[7,1]] ~ names[[7,2]],
+                            author=="Pooled Effect" ~ "Pooled Effect")) %>%
+   mutate(author = reorder(author,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, author) %>% 
+  mean_qi(b_statusPD) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(label =  glue("{b_statusPD} [{.lower}, {.upper}]"))
+
+pal <- wesanderson::wes_palettes$BottleRocket1[c(3,4)]
+
+
+ggplot(aes(b_statusPD, relevel(author, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(prior_fit)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(prior_fit)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  #geom_density_ridges(color="black", rel_min_height = 0.01, col = NA, scale = .9,
+  #                   alpha = 0.8) +
+  #geom_pointintervalh(data = forest.data.summary, size = 3) +
+  stat_halfeye(aes(fill = stat(exp(x)>1)),alpha=1,color="black") +
+  geom_text(data = forest.data.summary,
+    aes(label = label, x = Inf,hjust=1)) +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_ipsum(base_family = "Times New Roman",
+              grid = "X",
+              axis_title_size = 12,axis_title_just = "cc") +
+    theme(legend.position = "none") +
+  scale_x_log10() +
+  scale_fill_manual(values=pal)
+
+
+
+
+```
+
+
+
+```{r}
+library(rstan)
+
+str(d_list)
+
+data_list <- list(N = 790, # total number of observations
+             Y = full.dat$Verrucomicrobia, # response variable
+             K = 2, # number of population-level effects
+             X = matrix(0,nrow = N,ncol=K), #  population-level design matrix
+             J_1 = as.integer(as.factor(full.dat$author)), #  grouping indicator per observation
+             N_1 = 7, # number of grouping levels == number of studies
+             M_1 = 2, # number of coefficients per level == Intercept, slope
+             NC_1 = 1, # number of group-level correlations == between intercept and slope
+             prior_only = 0, # should the likelihood be ignored? == No!
+             offsets = vector(mode="numeric",length=N),
+             Z_1_1 = vector(mode="numeric",length=N),
+             Z_1_2 = vector(mode="numeric",length=N)
+            )
+
+
+#model <- stan_model("zi_negbin_model.stan")
+
+fit1 <- stan("zi_negbin_model.stan",data = data_list,chains = 2, iter = 1000,cores = getOption("mc.cores", 2))
+
+
+get_variables(fit)
+get_variables(fit1)
+
+
+plot(fit1)
+plot(fit)
+
+```
+
+```{r}
+
+study.draws <- fit1 %>% spread_draws(b_Intercept,
+                     b_statusPD,
+                     r_author[author,effect]) %>%
+  filter(effect=="statusPD") %>%
+  mutate(b_statusPD = r_author + b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD)) %>%
+  dplyr::select(.chain,.iteration,.draw,b_statusPD,author) %>% convert(fct(author))
+
+# Pooled effect
+pooled.draws <- spread_draws(fit1,b_statusPD) %>%
+  mutate(b_statusPD = exp(b_statusPD),
+         author = "Pooled Effect")
+
+
+forest.data <- bind_rows(study.draws, pooled.draws) %>% 
+   ungroup() %>%
+   mutate(author = case_when(author==names[[1,1]] ~ names[[1,2]],
+                            author==names[[2,1]] ~ names[[2,2]],
+                            author==names[[3,1]] ~ names[[3,2]],
+                            author==names[[4,1]] ~ names[[4,2]],
+                            author==names[[5,1]] ~ names[[5,2]],
+                            author==names[[6,1]] ~ names[[6,2]],
+                            author==names[[7,1]] ~ names[[7,2]],
+                            author=="Pooled Effect" ~ "Pooled Effect")) %>%
+   mutate(author = reorder(author,b_statusPD))
+
+forest.data.summary <- group_by(forest.data, author) %>% 
+  mean_qi(b_statusPD) %>%
+  mutate_if(is.numeric, round, 2) %>%
+  mutate(label =  glue("{b_statusPD} [{.lower}, {.upper}]"))
+
+
+pal <- as.vector(yarrr::piratepal(palette="brave")[c(3,5)])
+pal <- wesanderson::wes_palettes$BottleRocket1[c(3,4)]
+
+p <- ggplot(aes(b_statusPD, relevel(author, "Pooled Effect", after = Inf)), 
+       data = forest.data) +
+  geom_vline(xintercept = exp(fixef(fit1)[2, 1]), color = "grey", size = 1) +
+  geom_vline(xintercept = exp(fixef(fit1)[2, 3:4]), color = "grey", linetype = 2) +
+  geom_vline(xintercept = 1, color = "black", size = 1) +
+  #geom_density_ridges(color="black", rel_min_height = 0.01, col = NA, scale = .9,
+  #                   alpha = 0.8) +
+  #geom_pointintervalh(data = forest.data.summary, size = 3) +
+  stat_halfeye(aes(fill = stat(exp(x)>1)),alpha=1,color="black") +
+  geom_text(data = forest.data.summary,
+    aes(label = label, x = 15)) +
+  labs(x = "Incidence Rate Ratio",
+       y = element_blank()) +
+  theme_ipsum(base_family = "Times New Roman",
+              grid = "X",
+              axis_title_size = 12,axis_title_just = "cc") +
+    theme(legend.position = "none") +
+  scale_x_log10() +
+  scale_fill_manual(values=pal)
+```
+

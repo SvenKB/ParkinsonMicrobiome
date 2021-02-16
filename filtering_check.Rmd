@@ -1,0 +1,176 @@
+---
+title: "Check filtering"
+output: hrbrthemes::ipsum_pdf
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  dev = "cairo_pdf", fig.height=11.69, fig.width=8.27)
+
+library(readr)
+library(tidyverse)
+library(microbiome)
+library(hrbrthemes)
+```
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{r load packages, message=FALSE, warning=FALSE, include=FALSE}
+#### load packages ####
+source('packages.R')
+
+#### load functions ####
+source("functions.R")
+```
+
+### Load data - no trim
+
+```{r Load data, message=FALSE, warning=FALSE}
+
+PATHS <- list.files(path = "Data/Check_forwardread/")[-1]
+
+# Load ASV data
+A_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[1]),delim="\t")
+B_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[2]),delim="\t")
+C_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[3]),delim="\t")
+E_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[4]),delim="\t")
+F_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[5]),delim="\t")
+H_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[6]),delim="\t")
+I_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[7]),delim="\t")
+#J_data_FW <- readr::read_delim(paste0("Data/Check_forwardread/",PATHS[8]),delim="\t")
+
+
+
+names <- cbind(paste0("Study",1:7),name)
+
+
+df_FF <- list("Pietrucci et al., 2019" = A_data_FW,
+              "Qian et al., 2018" = B_data_FW,
+              "Keshavarzian et al., 2015" = C_data_FW,
+              "Aho et al., 2019" = E_data_FW,
+              "Heintz-Buschart et al., 2018" = F_data_FW,
+              "Weis et al., 2019" = H_data_FW,
+              "Barichella et al., 2019" = I_data_FW)
+```
+
+### Load original data
+
+```{r}
+dat_list <- readRDS(file = "phyl_list_unfiltered.RDS")
+
+df <- prepare_DA_data(data=dat_list,tax="Phylum")
+
+```
+
+# Check plausibility for one study - Barichella
+
+```{r}
+data <- df_FF[[7]]
+
+Barichella_FF <- data %>%
+  filter(rank=="phylum") %>%
+  dplyr::select(-c(taxid,lineage,rank)) %>%
+  column_to_rownames("name") %>%
+  t() %>% as.tibble() %>%
+  summarize(across(everything(),sum))
+
+
+Barichella_SR <- df %>%
+  filter(author=="Barichella et al., 2019") %>%
+  column_to_rownames("ID") %>%
+  dplyr::select(-c(status,author,N)) %>%
+  summarize(across(everything(),sum))
+
+
+bind_rows(Barichella_FF,Barichella_SR)
+
+```
+
+```{r fig.height=30}
+summarize_taxon <- function(study,level="phylum",rel=T) {
+  data <- df_FF[[study]]
+  d <- data %>%
+  filter(rank==level) %>%
+  dplyr::select(-c(taxid,lineage,rank)) %>%
+  column_to_rownames("name") %>%
+  t() %>% as.tibble() %>%
+  summarize(across(everything(),sum))
+  
+  if(rel==T) {
+    d <- round((d/sum(d))*100,2)
+  }
+  
+  d %>%
+      melt() %>%
+    mutate(author=study,
+           type="no_trim")
+  
+}
+
+studies <- names(df_FF)
+
+phyla_FF <- lapply(studies,summarize_taxon)
+
+ff_phyla <- reduce(phyla_FF,bind_rows)
+
+
+                   
+full_phylum <- df %>%
+  dplyr::select(-N) %>%
+  group_by(author) %>%
+  summarize(across(where(is.numeric),sum)) %>%
+  melt() %>%
+  group_by(author) %>%
+  mutate(value = round((value/sum(value))*100,2)) %>%
+  ungroup %>%
+  mutate(type="trim") %>%
+  bind_rows(ff_phyla)
+  
+```
+
+```{r}
+library(table1)
+library(formattable)
+
+t_df <- full_phylum %>%
+  pivot_wider(names_from = "variable",values_from = "value") %>%
+  arrange(author)
+
+
+t_df %>%
+  dplyr::select(-author) %>%
+  mutate("Processing type" = type,.before="type",.keep="unused") %>%
+  mutate(across(where(is.numeric),color_bar("red"))) %>%
+  kable("html",escape=F) %>%
+  group_rows(index=table(t_df$author)) %>%
+  kable_styling("hover", full_width = F) 
+
+
+```
+
+```{r}
+ggplot(aes(x=reorder(variable,value),y=value,fill=type),data=full_phylum) +
+  geom_bar(stat="identity",position = "dodge") +
+  facet_wrap(~author,scales="free",ncol=1) +
+  coord_flip() +
+  #scale_y_log10() +
+  theme_minimal() +
+    theme(axis.text.x = element_text(angle=90),
+        legend.position = "top") 
+```

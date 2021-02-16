@@ -1,0 +1,121 @@
+---
+title: "Bacteroidetes italy"
+author: "Sven Kleine Bardenhorst"
+date: "25 1 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+library(microbiome)
+df <- read_delim("Data/directly_classified/ITALIEN_directlyClassified.txt", 
+                                         "\t", escape_double = FALSE, trim_ws = TRUE)
+
+
+filter <- c("Firmicutes","Bacteroidetes","Proteobacteria,")
+
+df1 <- df %>% dplyr::filter(rank=="phylum")
+
+table_dat <- data.frame("Phylum"=df1$name,
+"reads"=rowSums(df1[,-c(1:4)]))
+
+sum(table_dat$reads)
+
+table_dat %>% arrange(desc(reads)) %>% kable %>% kable_styling()
+
+```
+
+
+```{r}
+df1 <- df %>% dplyr::filter(rank=="genus")
+
+table_dat <- data.frame("Phylum"=df1$name,
+"reads"=rowSums(df1[,-c(1:4)]))
+
+sum(table_dat$reads)
+
+table_dat %>% arrange(desc(reads)) %>% kable %>% kable_styling()
+```
+
+
+
+```{r}
+I_phyl <- readRDS("Data/italy_unfiltered_same_sequence.RDS")
+
+df_new <- I_phyl
+
+df_new <- aggregate_taxa(df_new,level="Phylum")
+
+df_new1 <- data.frame(t(otu_table(df_new)))
+
+sum(df_new1$Bacteroidetes)
+
+plot_dat <- data.frame((apply(df_new1,2,sum))) %>% rownames_to_column()
+colnames(plot_dat) <- c("Phylum","reads")
+
+plot_dat %>% arrange(desc(reads)) %>% kable() %>% kable_styling()
+
+```
+
+```{r}
+### Weiß
+
+H_phyl <- readRDS(file = "Data/weiss_unfiltered_same_sequence.RDS")
+
+
+df_new <- H_phyl
+
+df_new <- aggregate_taxa(df_new,level="Phylum")
+
+df_new1 <- data.frame(t(otu_table(df_new)))
+
+sample <- data.frame(sample_data(df_new)) %>% rownames_to_column("ID") %>% dplyr::select(ID,status)
+
+df_new1 %>%
+  rownames_to_column("ID") %>%
+  left_join(sample) %>%
+  #filter(Bacteroidetes > 0) %>%
+  group_by(status) %>%
+  summarize(Bacs = n())
+
+df_new1 %>%
+  rownames_to_column("ID") %>%
+  left_join(sample) %>%
+  dplyr::select(ID,status,Bacteroidetes) %>%
+  mutate(ID = as.factor(ID)) %>%
+  ggplot(aes(x=reorder(ID,desc(Bacteroidetes)),y=Bacteroidetes,fill=status)) +
+  geom_bar(stat="identity") +
+  #facet_grid(~status) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle=90)) +
+  xlab("ID") +
+  ylab("Reads") +
+  ggtitle("Bacteroidetes")
+
+
+plot_dat <- data.frame((apply(df_new1,2,sum))) %>% rownames_to_column()
+colnames(plot_dat) <- c("Phylum","reads")
+
+plot_dat %>% arrange(desc(reads)) %>% kable() %>% kable_styling()
+
+
+```
+
+```{r}
+
+df_new <- E_phyl
+
+df_new <- aggregate_taxa(df_new,level="Phylum")
+
+df_new1 <- data.frame(t(otu_table(df_new)))
+plot_dat <- data.frame((apply(df_new1,2,sum))) %>% rownames_to_column()
+colnames(plot_dat) <- c("Phylum","reads")
+
+plot_dat %>% arrange(desc(reads)) %>% kable() %>% kable_styling()
+```
+
